@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient as ssrBrowserClient } from '@supabase/ssr'
 
 // ── Cliente server-side (service_role — NUNCA expor no frontend) ──
 export function createServerClient() {
@@ -14,19 +15,9 @@ export function createServerClient() {
   })
 }
 
-// ── Cliente browser — singleton para evitar múltiplas instâncias ──
-let browserClient: SupabaseClient | null = null
-
-export function createBrowserClient(): SupabaseClient {
-  if (browserClient) return browserClient
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!url || !key) {
-    throw new Error('Supabase browser env vars não configuradas')
-  }
-
-  browserClient = createClient(url, key)
-  return browserClient
+// ── Cliente browser — usa @supabase/ssr para gestão correta de cookies/sessão ──
+export function createBrowserClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  return ssrBrowserClient(url, key)
 }
