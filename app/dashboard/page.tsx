@@ -86,7 +86,6 @@ export default function DashboardPage() {
   const [selectedId, setSelectedId]       = useState<string | null>(null)
   const [assets, setAssets]               = useState<Asset[]>([])
   const [loadingCandidates, setLoadingCandidates] = useState(true)
-  const [showForm, setShowForm]           = useState(false)
   const [sidebarOpen, setSidebarOpen]     = useState(false)
 
   async function handleLogout() {
@@ -157,8 +156,8 @@ export default function DashboardPage() {
         <p className="text-white/40 text-xs mt-0.5">Portal do Candidato</p>
       </div>
 
-      {/* Candidate selector */}
-      {candidates.length > 0 && candidate && (
+      {/* Candidate info */}
+      {candidate && (
         <div className="px-lg py-md border-b border-white/10">
           <div className="flex items-center gap-md">
             <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center shrink-0 overflow-hidden ring-2 ring-white/20">
@@ -169,20 +168,6 @@ export default function DashboardPage() {
               <p className="text-white/50 text-xs">Nº {candidate.election_number} · {candidate.party}</p>
             </div>
           </div>
-
-          {candidates.length > 1 && (
-            <select
-              value={selectedId ?? ''}
-              onChange={e => setSelectedId(e.target.value)}
-              className="mt-md w-full border border-white/20 rounded-lg px-3 py-2 text-xs bg-white/10 text-white focus:ring-2 focus:ring-white/30 focus:outline-none"
-            >
-              {candidates.map(c => (
-                <option key={c.id} value={c.id} className="bg-[#0f1a2e] text-white">
-                  {c.name} — {c.election_number}
-                </option>
-              ))}
-            </select>
-          )}
         </div>
       )}
 
@@ -215,14 +200,7 @@ export default function DashboardPage() {
       </nav>
 
       {/* Bottom actions */}
-      <div className="p-lg border-t border-white/10 space-y-2">
-        <button
-          onClick={() => setShowForm(true)}
-          className="w-full bg-[#4ade80] text-[#0f1a2e] py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#22c55e] transition-all"
-        >
-          <Icon name="add" className="text-[18px]" />
-          Novo candidato
-        </button>
+      <div className="p-lg border-t border-white/10">
         <button
           onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 text-white/40 hover:text-white/80 py-2 text-xs transition-colors"
@@ -315,25 +293,12 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Form de novo candidato */}
-          {(showForm || (!loadingCandidates && candidates.length === 0)) && (
+          {/* Form de cadastro inicial */}
+          {!loadingCandidates && candidates.length === 0 && (
             <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant p-lg shadow-sm">
-              <div className="flex items-center justify-between mb-lg">
-                <h3 className="font-headline font-bold text-on-surface">
-                  {candidates.length === 0 ? 'Criar primeiro candidato' : 'Novo candidato'}
-                </h3>
-                {showForm && candidates.length > 0 && (
-                  <button
-                    onClick={() => setShowForm(false)}
-                    className="text-on-surface-variant hover:text-on-surface"
-                  >
-                    <Icon name="close" />
-                  </button>
-                )}
-              </div>
+              <h3 className="font-headline font-bold text-on-surface mb-lg">Cadastre seu candidato</h3>
               <CandidateForm
                 onSuccess={id => {
-                  setShowForm(false)
                   setSelectedId(id)
                   if (!token) return
                   fetch('/api/v1/candidates', { headers: { Authorization: `Bearer ${token}` } })
@@ -344,7 +309,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {candidate && !showForm && (
+          {candidate && (
             <>
               {/* Stats */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-md">

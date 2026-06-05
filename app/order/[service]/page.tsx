@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useRef, use } from 'react'
+import { useState, useRef, use, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { getService, formatPrice } from '@/lib/pricing'
 import { createBrowserClient } from '@/lib/supabase'
-import type { JingleStyle } from '@/types'
+import type { Candidate, JingleStyle } from '@/types'
 
 const JINGLE_STYLES: { value: JingleStyle; emoji: string; desc: string }[] = [
   { value: 'Sertanejo Universitário', emoji: '🤠', desc: 'Batida moderna, voz emotiva, ideal para interior e agro' },
@@ -49,6 +49,9 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
     jingle_style: 'Sertanejo Universitário' as JingleStyle,
   })
 
+  const [existingCandidateId, setExistingCandidateId] = useState<string | null>(null)
+  const [loadingCandidate, setLoadingCandidate] = useState(true)
+
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
@@ -56,6 +59,40 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState<'form' | 'confirm'>('form')
+
+  useEffect(() => {
+    async function loadCandidate() {
+      try {
+        const supabase = createBrowserClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return
+        const res = await fetch('/api/v1/candidates', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+        const json = await res.json()
+        if (json.success && json.data?.length > 0) {
+          const c: Candidate = json.data[0]
+          setExistingCandidateId(c.id)
+          setForm({
+            name:              c.name,
+            election_number:   c.election_number,
+            party:             c.party,
+            campaign_cnpj:     c.campaign_cnpj ?? '',
+            cpf:               '',
+            slogan:            c.slogan ?? '',
+            biography_summary: c.biography_summary,
+            primary_color:     c.primary_color ?? '#1a56db',
+            secondary_color:   c.secondary_color ?? '#ffffff',
+            jingle_style:      'Sertanejo Universitário',
+          })
+          if (c.base_photo_url) setPhotoPreview(c.base_photo_url)
+        }
+      } finally {
+        setLoadingCandidate(false)
+      }
+    }
+    loadCandidate()
+  }, [])
 
   const COMBO_PRICE = 59900 // R$ 599 — combo completo (todos os serviços)
 
@@ -92,16 +129,9 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
   }
 
   async function getToken(): Promise<string> {
-    const supabase = createBrowserClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session) return session.access_token
-
-    // Cria sessão anônima para o usuário não precisar se cadastrar
-    // Requer "Anonymous sign-ins" ativo em Authentication → Sign In Methods no Supabase
-    const { data, error } = await supabase.auth.signInAnonymously()
-    if (error) throw new Error(`Erro de autenticação: ${error.message}. Verifique as configurações do Supabase.`)
-    if (!data.session) throw new Error('Sessão não iniciada. Verifique se "Anonymous sign-ins" está ativo no Supabase.')
-    return data.session.access_token
+    const { data: { session } } = await createBrowserClient().auth.getSession()
+    if (!session) throw new Error('Sessão expirada. Faça login novamente.')
+    return session.access_token
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -114,17 +144,22 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
     try {
       const token = await getToken()
 
-      // 1. Cria candidato
-      const candRes = await fetch('/api/v1/candidates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(form),
-      })
-      const candJson = await candRes.json()
-      if (!candJson.success) throw new Error(candJson.error)
-      const candidateId: string = candJson.data.id
+      // 1. Usa candidato existente ou cria novo
+      let candidateId: string
+      if (existingCandidateId) {
+        candidateId = existingCandidateId
+      } else {
+        const candRes = await fetch('/api/v1/candidates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(form),
+        })
+        const candJson = await candRes.json()
+        if (!candJson.success) throw new Error(candJson.error)
+        candidateId = candJson.data.id
+      }
 
-      // 2. Upload de foto (se houver)
+      // 2. Upload de foto (se houver foto nova selecionada)
       if (photoFile) {
         const fd = new FormData()
         fd.append('photo', photoFile)
@@ -171,6 +206,14 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
     }
   }
 
+  if (loadingCandidate) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-400 text-sm">Carregando seus dados…</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Nav */}
@@ -195,6 +238,13 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
               </h1>
               <p className="text-gray-500 text-sm mt-1">{service.description}</p>
             </div>
+
+            {existingCandidateId && (
+              <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
+                <span>✅</span>
+                <span>Dados pré-preenchidos do seu cadastro. Você pode ajustar antes de confirmar.</span>
+              </div>
+            )}
 
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -230,13 +280,15 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
                     className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CPF *</label>
-                  <input required value={form.cpf}
-                    onChange={e => setForm(p => ({ ...p, cpf: formatCpf(e.target.value) }))}
-                    placeholder="000.000.000-00"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
-                </div>
+                {!existingCandidateId && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CPF *</label>
+                    <input required value={form.cpf}
+                      onChange={e => setForm(p => ({ ...p, cpf: formatCpf(e.target.value) }))}
+                      placeholder="000.000.000-00"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ da campanha *</label>
@@ -359,7 +411,7 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
 
             {/* LGPD */}
             <p className="text-xs text-gray-400">
-              Seus dados são tratados conforme a LGPD. O CPF é criptografado e nunca compartilhado.
+              Seus dados são tratados conforme a LGPD.{!existingCandidateId && ' O CPF é criptografado e nunca compartilhado.'}
             </p>
 
             <button

@@ -53,7 +53,20 @@ export async function POST(req: NextRequest) {
     // 4. Criptografa CPF — NUNCA persiste em plain text
     const cpf_encrypted = await encryptCpf(input.cpf)
 
-    // 5. Insere candidate — candidate_id vem do user autenticado (NÃO do body)
+    // 5. Verifica se o usuário já tem um candidato (1 conta = 1 candidato)
+    const { count } = await supabase
+      .from('candidates')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+
+    if ((count ?? 0) > 0) {
+      return NextResponse.json<ApiResponse>(
+        { success: false, error: 'Você já possui um candidato cadastrado.' },
+        { status: 409 }
+      )
+    }
+
+    // 6. Insere candidate — candidate_id vem do user autenticado (NÃO do body)
     const { data: candidate, error: insertError } = await supabase
       .from('candidates')
       .insert({
@@ -88,9 +101,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json<ApiResponse>({ success: true, data: { id: candidate.id } }, { status: 201 })
   } catch (err) {
-    console.error('[candidates] unexpected error:', err)
+    const detail = err instanceof Error ? err.stack ?? err.message : String(err)
+    console.error('[candidates] unexpected error:', detail)
     return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Erro interno.' },
+      { success: false, error: `Erro interno: ${err instanceof Error ? err.message : String(err)}` },
       { status: 500 }
     )
   }
