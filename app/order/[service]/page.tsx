@@ -86,7 +86,11 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
             jingle_style:      'Sertanejo Universitário',
           })
           if (c.base_photo_url) setPhotoPreview(c.base_photo_url)
+        } else if (!json.success) {
+          setError(json.error ?? 'Erro ao carregar candidato.')
         }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erro ao carregar dados do candidato.')
       } finally {
         setLoadingCandidate(false)
       }

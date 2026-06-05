@@ -150,9 +150,10 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json<ApiResponse>({ success: true, data })
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
     console.error('[candidates] GET error:', err)
     return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Erro interno.' },
+      { success: false, error: `Erro ao buscar candidatos: ${detail}` },
       { status: 500 }
     )
   }

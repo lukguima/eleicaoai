@@ -128,7 +128,8 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
     console.error('[payments/create] error:', err)
-    return NextResponse.json<ApiResponse>({ success: false, error: 'Erro interno.' }, { status: 500 })
+    return NextResponse.json<ApiResponse>({ success: false, error: `Erro no pagamento: ${detail}` }, { status: 500 })
   }
 }
