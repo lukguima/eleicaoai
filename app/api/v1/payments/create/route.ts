@@ -6,9 +6,8 @@ import { rateLimit } from '@/lib/rate-limit'
 import type { ApiResponse } from '@/types'
 
 // ── POST /api/v1/payments/create ──────────────────────────────
-// Cria preferência de pagamento no Mercado Pago.
-// Sem MERCADOPAGO_ACCESS_TOKEN: retorna { skip_payment: true }
-// e o fluxo continua com geração direta (modo dev).
+// Sem MERCADOPAGO_ACCESS_TOKEN ou com BYPASS_PAYMENT=true:
+// retorna { skip_payment: true } e gera direto (fase de testes).
 
 export async function POST(req: NextRequest) {
   try {
@@ -63,24 +62,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json<ApiResponse>({ success: false, error: 'Serviço indisponível no momento.' }, { status: 410 })
     }
 
+    // ── Bypass: sem token MP ou modo de testes ────────────────
+    const bypass = !isPaymentEnabled() || process.env.BYPASS_PAYMENT === 'true'
+    if (bypass) {
+      return NextResponse.json<ApiResponse>({ success: true, data: { skip_payment: true } })
+    }
+
+    // ── Produção: cria registro + preferência MP ─────────────
+    const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'https://eleicaoai.com.br'
+
     const service = {
       ...staticService,
       price: productRow?.price ?? staticService.price,
       label: productRow?.label ?? staticService.label,
     }
 
-    // ── Dev bypass ───────────────────────────────────────────
-    if (!isPaymentEnabled()) {
-      return NextResponse.json<ApiResponse>({
-        success: true,
-        data: { skip_payment: true },
-      })
-    }
-
-    // ── Produção: cria registro + preferência MP ─────────────
-    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://eleicaoai.com.br'
-
-    // Salva payment no banco
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
       .insert({
@@ -99,7 +95,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json<ApiResponse>({ success: false, error: 'Erro ao registrar pagamento.' }, { status: 500 })
     }
 
-    // Cria preferência no MP
     const preference = await createPreference({
       title: service.label,
       amount: service.price / 100,
@@ -112,7 +107,6 @@ export async function POST(req: NextRequest) {
       notificationUrl: `${origin}/api/webhooks/mercadopago`,
     })
 
-    // Salva preference_id
     await supabase
       .from('payments')
       .update({ mp_preference_id: preference.id })
