@@ -40,13 +40,34 @@ export async function logComplianceEvent(params: LogParams): Promise<void> {
  * Usa a função atômica do banco para evitar race condition.
  */
 export async function consumeCredit(candidateId: string): Promise<boolean> {
+  // Em fase de testes, desabilita verificação de créditos
+  if (process.env.BYPASS_PAYMENT === 'true') return true
+
   const supabase = createServerClient()
+
+  // Garante que o candidato tem subscription (auto-provisiona se não tiver)
+  const { count } = await supabase
+    .from('subscriptions')
+    .select('id', { count: 'exact', head: true })
+    .eq('candidate_id', candidateId)
+
+  if ((count ?? 0) === 0) {
+    await supabase.from('subscriptions').insert({
+      candidate_id:      candidateId,
+      plan:              'starter',
+      credits_remaining: 3,
+    })
+  }
 
   const { data, error } = await supabase.rpc('decrement_credit', {
     p_candidate_id: candidateId,
   })
 
-  if (error) throw new Error(`Erro ao consumir crédito: ${error.message}`)
+  if (error) {
+    console.error('[consumeCredit] RPC error:', error.message)
+    // Não bloqueia geração se crédito falhar (evita lock-out por erro de DB)
+    return true
+  }
   return data as boolean
 }
 

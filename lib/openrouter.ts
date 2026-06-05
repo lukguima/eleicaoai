@@ -75,7 +75,6 @@ export async function generateImage(candidate: Candidate, assetType: AssetType):
       n: 1,
       size: SIZE_MAP[assetType],
       quality: 'standard',
-      response_format: 'url',
     }),
     signal: AbortSignal.timeout(120_000),
   })
