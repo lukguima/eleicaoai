@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { generateJingle } from '@/lib/suno'
+import { persistAudio } from '@/lib/storage'
 import { logComplianceEvent } from '@/lib/compliance'
 import type { SunoCallback, SunoLyricsCallbackData, SunoCallbackTrack, Candidate, JingleStyle } from '@/types'
 
@@ -110,11 +111,15 @@ export async function POST(req: NextRequest) {
       // Usa a primeira faixa gerada
       const track = tracks[0]
 
+      // Persiste o áudio no Supabase Storage (URLs do Suno expiram)
+      const persistedUrl = await persistAudio(track.audio_url, asset.candidate_id, assetId)
+        .catch(() => track.audio_url)
+
       await supabase
         .from('assets')
         .update({
           status:      'done',
-          output_url:  track.audio_url,
+          output_url:  persistedUrl,
           preview_url: track.stream_audio_url,
           metadata: {
             ...(asset.metadata as object),

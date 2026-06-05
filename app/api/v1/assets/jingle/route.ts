@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { generateLyrics, generateJingle, waitForLyrics, waitForMusic } from '@/lib/suno'
+import { persistAudio } from '@/lib/storage'
 import { jingleRequestSchema } from '@/lib/validation'
 import { consumeCredit, logComplianceEvent } from '@/lib/compliance'
 import type { ApiResponse, Candidate, JingleStyle } from '@/types'
@@ -165,12 +166,13 @@ async function pollJingleAndUpdate(
       .eq('id', assetId)
       .eq('candidate_id', candidateId)
 
-    // Etapa 2: aguarda música
+    // Etapa 2: aguarda música e persiste no Storage
     const audioUrl = await waitForMusic(musicTaskId)
+    const persistedUrl = await persistAudio(audioUrl, candidateId, assetId).catch(() => audioUrl)
 
     await supabase
       .from('assets')
-      .update({ status: 'done', output_url: audioUrl })
+      .update({ status: 'done', output_url: persistedUrl })
       .eq('id', assetId)
       .eq('candidate_id', candidateId)
   } catch (err) {
