@@ -58,7 +58,6 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
   const photoRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [step, setStep] = useState<'form' | 'confirm'>('form')
 
   useEffect(() => {
     async function loadCandidate() {
@@ -140,8 +139,6 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (step === 'form') { setStep('confirm'); return }
-
     setLoading(true)
     setError(null)
 
@@ -204,7 +201,6 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao processar pedido.')
-      setStep('form')
     } finally {
       setLoading(false)
     }
@@ -423,12 +419,7 @@ export default function OrderPage({ params }: { params: Promise<{ service: strin
               disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-4 rounded-xl text-base transition-colors"
             >
-              {loading
-                ? 'Processando...'
-                : step === 'form'
-                  ? `Revisar pedido →`
-                  : `Confirmar e gerar — ${formatPrice(COMBO_PRICE)}`
-              }
+              {loading ? 'Gerando...' : 'Gerar material'}
             </button>
           </form>
         </div>
