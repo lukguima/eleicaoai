@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { generateImage, analyzeImage } from '@/lib/image-generator'
+import { generateImage, analyzeImage, type ImageAnalysis } from '@/lib/image-generator'
 import { imageRequestSchema } from '@/lib/validation'
 import { consumeCredit, logComplianceEvent } from '@/lib/compliance'
 import { rateLimit } from '@/lib/rate-limit'
@@ -146,10 +146,10 @@ async function dispatchGeneration(
     console.log(`[image] geração concluída via ${provider} asset=${assetId}`)
 
     // Vision analysis — runs in parallel-ish but we await before saving
-    let analysis: Record<string, unknown> | null = null
+    let analysis: ImageAnalysis | null = null
     if (process.env.OPENAI_API_KEY) {
       try {
-        analysis = await analyzeImage(url, assetType, candidate.name) as Record<string, unknown>
+        analysis = await analyzeImage(url, assetType, candidate.name)
         console.log(
           `[image] análise vision concluída asset=${assetId} score=${analysis?.quality_score}`
         )
