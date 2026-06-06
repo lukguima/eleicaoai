@@ -117,12 +117,9 @@ export async function POST(req: NextRequest) {
       { status: 202 }
     )
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
     console.error('[image] error:', err)
-    const message =
-      err instanceof Error && err.message.includes('bloqueado')
-        ? err.message
-        : 'Erro interno ao iniciar geração.'
-    return NextResponse.json<ApiResponse>({ success: false, error: message }, { status: 500 })
+    return NextResponse.json<ApiResponse>({ success: false, error: `Erro ao gerar imagem: ${detail}` }, { status: 500 })
   }
 }
 

@@ -128,9 +128,10 @@ export async function POST(req: NextRequest) {
       { status: 202 }
     )
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err)
     console.error('[jingle] error:', err)
     return NextResponse.json<ApiResponse>(
-      { success: false, error: 'Erro interno ao iniciar geração.' },
+      { success: false, error: `Erro ao gerar jingle: ${detail}` },
       { status: 500 }
     )
   }
