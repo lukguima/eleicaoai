@@ -20,6 +20,10 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
   const [asset, setAsset] = useState<Asset | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [editingLyrics, setEditingLyrics] = useState(false)
+  const [editedLyrics, setEditedLyrics] = useState('')
+  const [regenLoading, setRegenLoading] = useState(false)
+  const [regenError, setRegenError] = useState<string | null>(null)
 
   // Obtém token da sessão
   useEffect(() => {
@@ -63,6 +67,28 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
     const interval = setInterval(() => fetchAssetDirect(token), 5000)
     return () => clearInterval(interval)
   }, [token, asset, fetchAssetDirect])
+
+  async function handleRegen() {
+    if (!token || !editedLyrics.trim()) return
+    setRegenLoading(true)
+    setRegenError(null)
+    try {
+      const res = await fetch(`/api/v1/assets/${assetId}/regen`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ lyrics: editedLyrics }),
+      })
+      const json = await res.json()
+      if (!json.success) throw new Error(json.error)
+      setEditingLyrics(false)
+      // Recarrega o asset para mostrar processing
+      setAsset(prev => prev ? { ...prev, status: 'processing', output_url: null } : prev)
+    } catch (err) {
+      setRegenError(err instanceof Error ? err.message : 'Erro ao regenerar.')
+    } finally {
+      setRegenLoading(false)
+    }
+  }
 
   const status = (asset?.status ?? 'processing') as Status
   const config = STATUS_CONFIG[status]
@@ -138,9 +164,49 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
               <div className="p-8 space-y-4">
                 <h2 className="font-bold text-gray-900">🎵 Seu jingle está pronto</h2>
                 {asset.lyrics && (
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Letra gerada</p>
-                    <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{asset.lyrics}</pre>
+                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Letra gerada</p>
+                      {!editingLyrics && (
+                        <button
+                          onClick={() => { setEditedLyrics(asset.lyrics ?? ''); setEditingLyrics(true); setRegenError(null) }}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
+                        >
+                          ✏️ Editar letra
+                        </button>
+                      )}
+                    </div>
+
+                    {editingLyrics ? (
+                      <div className="space-y-3">
+                        <textarea
+                          value={editedLyrics}
+                          onChange={e => setEditedLyrics(e.target.value)}
+                          rows={14}
+                          className="w-full text-sm text-gray-700 leading-relaxed font-mono border border-gray-300 rounded-lg p-3 resize-y focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
+                        />
+                        {regenError && (
+                          <p className="text-xs text-red-600">{regenError}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleRegen}
+                            disabled={regenLoading || editedLyrics.trim().length < 10}
+                            className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-2.5 rounded-lg text-sm transition-colors"
+                          >
+                            {regenLoading ? 'Gerando...' : '🎵 Regenerar áudio com esta letra'}
+                          </button>
+                          <button
+                            onClick={() => { setEditingLyrics(false); setRegenError(null) }}
+                            className="px-4 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{asset.lyrics}</pre>
+                    )}
                   </div>
                 )}
                 <audio controls className="w-full" src={`/api/v1/assets/export/${asset.id}`}>
