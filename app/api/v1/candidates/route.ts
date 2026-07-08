@@ -92,12 +92,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // 6. Cria subscription trial (3 créditos)
-    await supabase.from('subscriptions').insert({
-      candidate_id:      candidate.id,
-      plan:              'starter',
-      credits_remaining: 3,
-    })
+    // Os direitos de criação (entitlements) são liberados quando um pedido é pago
+    // (webhook do Mercado Pago). O cadastro do candidato não concede nada por si só.
 
     return NextResponse.json<ApiResponse>({ success: true, data: { id: candidate.id } }, { status: 201 })
   } catch (err) {

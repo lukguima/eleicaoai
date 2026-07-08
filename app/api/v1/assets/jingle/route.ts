@@ -3,7 +3,8 @@ import { createServerClient } from '@/lib/supabase'
 import { generateLyrics, generateJingle, waitForLyrics, waitForMusic } from '@/lib/suno'
 import { persistAudio } from '@/lib/storage'
 import { jingleRequestSchema } from '@/lib/validation'
-import { consumeCredit, logComplianceEvent } from '@/lib/compliance'
+import { logComplianceEvent } from '@/lib/compliance'
+import { claimEntitlement, consumeEntitlement, releaseEntitlement } from '@/lib/entitlements'
 import type { ApiResponse, Candidate, JingleStyle } from '@/types'
 
 // ── POST /api/v1/assets/jingle ────────────────────────────────
@@ -61,11 +62,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // 4. Consome crédito atomicamente (função no banco evita race condition)
-    const hasCredit = await consumeCredit(candidate_id)
-    if (!hasCredit) {
+    // 4. Reivindica o direito de criar o jingle (pagamento libera entitlements)
+    const entitlementId = await claimEntitlement(candidate_id, 'jingle')
+    if (!entitlementId) {
       return NextResponse.json<ApiResponse>(
-        { success: false, error: 'Créditos insuficientes. Faça upgrade do seu plano.' },
+        { success: false, error: 'Você ainda não contratou o jingle. Acesse a página de planos para liberar.' },
         { status: 402 }
       )
     }
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
       .eq('candidate_id', candidate_id) // dupla proteção
 
     // 8. Polling em background — garante atualização mesmo sem webhook público (dev local)
-    pollJingleAndUpdate(asset.id, candidate_id, taskId, candidate as Candidate, style as JingleStyle)
+    pollJingleAndUpdate(asset.id, candidate_id, taskId, candidate as Candidate, style as JingleStyle, entitlementId)
       .catch(err => console.error('[jingle] polling error:', err))
 
     // 9. Registra no log de compliance (LGPD)
@@ -147,6 +148,7 @@ async function pollJingleAndUpdate(
   lyricsTaskId: string,
   candidate: Candidate,
   style: JingleStyle,
+  entitlementId: string,
 ) {
   const supabase = createServerClient()
 
@@ -176,6 +178,8 @@ async function pollJingleAndUpdate(
       .update({ status: 'done', output_url: persistedUrl })
       .eq('id', assetId)
       .eq('candidate_id', candidateId)
+
+    await consumeEntitlement(entitlementId, assetId)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Erro desconhecido'
 
@@ -187,6 +191,8 @@ async function pollJingleAndUpdate(
       .single()
 
     if (data?.status !== 'done') {
+      // Devolve o direito ao candidato — falha não deve "gastar" o jingle
+      await releaseEntitlement(entitlementId)
       await supabase
         .from('assets')
         .update({ status: 'failed', error_message: msg })

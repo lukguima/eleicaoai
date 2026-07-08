@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { getPayment } from '@/lib/mercadopago'
+import { getPayment, verifyWebhookSignature } from '@/lib/mercadopago'
 import { generateImage } from '@/lib/image-generator'
 import { generateLyrics, generateJingle, waitForLyrics, waitForMusic } from '@/lib/suno'
 import { logComplianceEvent } from '@/lib/compliance'
@@ -20,6 +20,19 @@ export async function POST(req: NextRequest) {
     }
 
     const mpPaymentId = String(body.data.id)
+
+    // Valida a assinatura do webhook (rejeita chamadas forjadas).
+    // O `data.id` vem tanto do corpo quanto da query `?data.id=` — usamos o do corpo.
+    const dataIdQuery = new URL(req.url).searchParams.get('data.id')
+    const validSignature = verifyWebhookSignature({
+      xSignature: req.headers.get('x-signature'),
+      xRequestId: req.headers.get('x-request-id'),
+      dataId: dataIdQuery ?? mpPaymentId,
+    })
+    if (!validSignature) {
+      console.error('[mp-webhook] assinatura inválida — requisição rejeitada')
+      return NextResponse.json({ error: 'assinatura inválida' }, { status: 401 })
+    }
     const supabase = createServerClient()
 
     // 1. Busca detalhes do pagamento no MP

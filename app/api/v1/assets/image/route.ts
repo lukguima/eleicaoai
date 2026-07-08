@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { generateImage, analyzeImage, type ImageAnalysis } from '@/lib/image-generator'
 import { imageRequestSchema } from '@/lib/validation'
-import { consumeCredit, logComplianceEvent } from '@/lib/compliance'
+import { logComplianceEvent } from '@/lib/compliance'
+import { claimEntitlement, consumeEntitlement, releaseEntitlement } from '@/lib/entitlements'
 import { rateLimit } from '@/lib/rate-limit'
 import type { ApiResponse, Candidate, AssetType } from '@/types'
 
@@ -66,10 +67,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const hasCredit = await consumeCredit(candidate_id)
-    if (!hasCredit) {
+    // Reivindica o direito de criar esta peça (pagamento libera entitlements)
+    const entitlementId = await claimEntitlement(candidate_id, asset_type as AssetType)
+    if (!entitlementId) {
       return NextResponse.json<ApiResponse>(
-        { success: false, error: 'Créditos insuficientes. Faça upgrade do seu plano.' },
+        { success: false, error: 'Você ainda não contratou esta peça. Acesse a página de planos para liberar.' },
         { status: 402 }
       )
     }
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Dispara geração em background — não bloqueia a response
-    dispatchGeneration(asset.id, candidate_id, candidate as Candidate, asset_type as AssetType).catch(
+    dispatchGeneration(asset.id, candidate_id, candidate as Candidate, asset_type as AssetType, entitlementId).catch(
       err => console.error('[image] dispatch error:', err)
     )
 
@@ -133,7 +135,8 @@ async function dispatchGeneration(
   assetId: string,
   candidateId: string,
   candidate: Candidate,
-  assetType: AssetType
+  assetType: AssetType,
+  entitlementId: string,
 ) {
   const supabase = createServerClient()
   console.log(`[image] iniciando geração asset=${assetId} type=${assetType}`)
@@ -166,9 +169,12 @@ async function dispatchGeneration(
       .eq('id', assetId)
       .eq('candidate_id', candidateId)
     if (error) console.error(`[image] erro ao salvar done no DB: ${error.message}`)
+    else await consumeEntitlement(entitlementId, assetId)
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Erro desconhecido'
     console.error(`[image] geração falhou asset=${assetId}:`, msg)
+    // Devolve o direito ao candidato — falha não deve "gastar" a peça
+    await releaseEntitlement(entitlementId)
     const { error } = await supabase
       .from('assets')
       .update({ status: 'failed', error_message: msg })

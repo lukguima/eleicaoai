@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { signedUrlFromPublic } from '@/lib/storage'
 import type { ApiResponse } from '@/types'
 
 // ── GET /api/v1/assets/[id] ───────────────────────────────────
@@ -61,7 +62,14 @@ export async function GET(
       )
     }
 
-    return NextResponse.json<ApiResponse>({ success: true, data: asset })
+    // media_url: signed URL (1h) para tocar/exibir direto no navegador sem
+    // header de autenticação (o <audio>/<img> não envia Bearer). Para imagens,
+    // o download com marca d'água continua sendo servido por /assets/export/[id].
+    const media_url = asset.status === 'done'
+      ? await signedUrlFromPublic(asset.output_url)
+      : null
+
+    return NextResponse.json<ApiResponse>({ success: true, data: { ...asset, media_url } })
   } catch (err) {
     console.error('[assets/id] GET error:', err)
     return NextResponse.json<ApiResponse>(

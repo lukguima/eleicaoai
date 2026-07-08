@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { createPreference, isPaymentEnabled } from '@/lib/mercadopago'
+import { createPreference, isPaymentEnabled, isSandboxToken } from '@/lib/mercadopago'
 import { SERVICES } from '@/lib/pricing'
 import { rateLimit } from '@/lib/rate-limit'
 import type { ApiResponse } from '@/types'
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
       .update({ mp_preference_id: preference.id })
       .eq('id', payment.id)
 
-    const isSandbox = process.env.NODE_ENV !== 'production'
+    const isSandbox = isSandboxToken()
 
     return NextResponse.json<ApiResponse>({
       success: true,

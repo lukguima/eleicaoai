@@ -2,10 +2,64 @@
 // Configure MERCADOPAGO_ACCESS_TOKEN no .env.local para ativar pagamentos.
 // Sem o token, o sistema usa bypass (gera sem cobrança — ideal para dev).
 
+import crypto from 'crypto'
+
 const BASE = 'https://api.mercadopago.com'
 
 export function isPaymentEnabled(): boolean {
   return !!process.env.MERCADOPAGO_ACCESS_TOKEN
+}
+
+/**
+ * Ambiente é definido pelo TIPO do token, não pelo NODE_ENV.
+ * Tokens de teste do Mercado Pago começam com "TEST-".
+ * Em sandbox o checkout usa `sandbox_init_point`; em produção, `init_point`.
+ */
+export function isSandboxToken(): boolean {
+  return (process.env.MERCADOPAGO_ACCESS_TOKEN ?? '').startsWith('TEST-')
+}
+
+/**
+ * Valida a assinatura do webhook do Mercado Pago (cabeçalho `x-signature`).
+ * Manifesto assinado: `id:<dataId>;request-id:<x-request-id>;ts:<ts>;`
+ * (o dataId é minúsculo quando alfanumérico). HMAC-SHA256 com o segredo
+ * configurado no painel do MP (MERCADOPAGO_WEBHOOK_SECRET).
+ *
+ * Se o segredo não estiver configurado, retorna false (falha fechada).
+ */
+export function verifyWebhookSignature(params: {
+  xSignature: string | null
+  xRequestId: string | null
+  dataId: string | null
+}): boolean {
+  const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET
+  if (!secret) {
+    console.error('[mercadopago] MERCADOPAGO_WEBHOOK_SECRET não configurado — webhook rejeitado')
+    return false
+  }
+  const { xSignature, xRequestId, dataId } = params
+  if (!xSignature || !dataId) return false
+
+  // x-signature: "ts=1699999999,v1=abc123..."
+  const parts = Object.fromEntries(
+    xSignature.split(',').map(kv => {
+      const [k, v] = kv.split('=')
+      return [k?.trim(), v?.trim()]
+    }),
+  )
+  const ts = parts['ts']
+  const v1 = parts['v1']
+  if (!ts || !v1) return false
+
+  const id = /[a-zA-Z]/.test(dataId) ? dataId.toLowerCase() : dataId
+  const manifest = `id:${id};request-id:${xRequestId ?? ''};ts:${ts};`
+
+  const expected = crypto.createHmac('sha256', secret).update(manifest).digest('hex')
+
+  // Comparação em tempo constante
+  const a = Buffer.from(expected)
+  const b = Buffer.from(v1)
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
 function auth(): string {

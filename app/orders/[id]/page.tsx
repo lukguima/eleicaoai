@@ -6,6 +6,8 @@ import Image from 'next/image'
 import { createBrowserClient } from '@/lib/supabase'
 import type { Asset } from '@/types'
 
+type AssetWithMedia = Asset & { media_url?: string | null }
+
 type Status = 'pending' | 'processing' | 'done' | 'failed'
 
 const STATUS_CONFIG: Record<Status, { label: string; color: string; icon: string }> = {
@@ -17,7 +19,7 @@ const STATUS_CONFIG: Record<Status, { label: string; color: string; icon: string
 
 export default function OrderResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: assetId } = use(params)
-  const [asset, setAsset] = useState<Asset | null>(null)
+  const [asset, setAsset] = useState<AssetWithMedia | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [editingLyrics, setEditingLyrics] = useState(false)
@@ -82,7 +84,7 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
       if (!json.success) throw new Error(json.error)
       setEditingLyrics(false)
       // Recarrega o asset para mostrar processing
-      setAsset(prev => prev ? { ...prev, status: 'processing', output_url: null } : prev)
+      setAsset(prev => prev ? { ...prev, status: 'processing', output_url: undefined, media_url: null } : prev)
     } catch (err) {
       setRegenError(err instanceof Error ? err.message : 'Erro ao regenerar.')
     } finally {
@@ -209,16 +211,20 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
                     )}
                   </div>
                 )}
-                <audio controls className="w-full" src={`/api/v1/assets/export/${asset.id}`}>
-                  Seu navegador não suporta áudio.
-                </audio>
+                {asset.media_url ? (
+                  <audio controls className="w-full" src={asset.media_url}>
+                    Seu navegador não suporta áudio.
+                  </audio>
+                ) : (
+                  <p className="text-sm text-gray-400">Preparando o áudio…</p>
+                )}
               </div>
             ) : (
               <div>
-                {asset.output_url && (
+                {(asset.media_url ?? asset.output_url) && (
                   <div className="relative bg-gray-100 flex items-center justify-center" style={{ minHeight: 300 }}>
                     <Image
-                      src={asset.output_url}
+                      src={asset.media_url ?? asset.output_url!}
                       alt="Material gerado"
                       width={600}
                       height={400}
