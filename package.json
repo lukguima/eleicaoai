@@ -10,12 +10,17 @@
   },
   "dependencies": {
     "@fal-ai/client": "^1.10.1",
+    "@fontsource/anton": "^5.2.7",
+    "@fontsource/inter": "^5.2.8",
+    "@resvg/resvg-js": "^2.6.2",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
     "motion": "^12.38.0",
     "next": "16.2.4",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "satori": "^0.26.0",
     "sharp": "^0.34.5",
     "uuid": "^14.0.0",
     "zod": "^4.4.1"

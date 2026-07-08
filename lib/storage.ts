@@ -31,6 +31,25 @@ export async function signedUrlFromPublic(publicUrl: string | null | undefined, 
 }
 
 /**
+ * Faz upload de um buffer para o bucket `generated` e devolve a URL pública.
+ * (O download sensível deve usar signedUrlFromPublic; a URL pública é o
+ * ponteiro estável guardado no banco.)
+ */
+export async function uploadToBucket(
+  storagePath: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<string> {
+  const supabase = createServerClient()
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(storagePath, buffer, { contentType, upsert: true })
+  if (error) throw new Error(`Falha no upload para o Storage: ${error.message}`)
+  const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(storagePath)
+  return publicUrl
+}
+
+/**
  * Baixa um arquivo de áudio de uma URL externa e persiste no Supabase Storage.
  * Se o upload falhar, retorna a URL original como fallback (não quebra o fluxo).
  */
