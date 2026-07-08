@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { validateMagicBytes } from '@/lib/validation'
+import { uploadToBucket } from '@/lib/storage'
+import { removeBackground } from '@/lib/fal'
 import type { ApiResponse } from '@/types'
+
+export const runtime = 'nodejs'
+export const maxDuration = 60
 
 // ── POST /api/v1/candidates/[id]/photo ────────────────────────
 // Recebe multipart/form-data com campo "photo" (JPEG/PNG/WebP),
@@ -93,40 +98,36 @@ export async function POST(
       )
     }
 
-    // 5. Upload para Supabase Storage (bucket: candidate-photos)
+    // 5. Upload da foto base para o Storage
     const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg'
-    const storagePath = `${user.id}/${candidateId}/base_photo.${ext}`
-
-    const { error: uploadError } = await supabase.storage
-      .from('candidate-photos')
-      .upload(storagePath, buffer, {
-        contentType: mime,
-        upsert: true,       // permite re-upload
-      })
-
-    if (uploadError) {
-      console.error('[photo] upload error:', uploadError)
+    let photoUrl: string
+    try {
+      photoUrl = await uploadToBucket(`${candidateId}/base_photo_${Date.now()}.${ext}`, buffer, mime)
+    } catch (e) {
+      console.error('[photo] upload error:', e)
       return NextResponse.json<ApiResponse>(
         { success: false, error: 'Erro ao fazer upload da foto.' },
         { status: 500 },
       )
     }
 
-    // 6. Busca URL pública e atualiza candidato
-    const { data: publicUrlData } = supabase.storage
-      .from('candidate-photos')
-      .getPublicUrl(storagePath)
+    // 6. Remoção de fundo via IA (não-fatal: se falhar, mantém só a foto original)
+    let cutoutUrl: string | null = null
+    try {
+      cutoutUrl = await removeBackground(photoUrl, `${candidateId}/base_photo_cutout_${Date.now()}.png`)
+    } catch (e) {
+      console.warn('[photo] remoção de fundo falhou (não crítico):', e instanceof Error ? e.message : e)
+    }
 
-    const photoUrl = publicUrlData.publicUrl
-
+    // 7. Atualiza candidato
     await supabase
       .from('candidates')
-      .update({ base_photo_url: photoUrl })
+      .update({ base_photo_url: photoUrl, base_photo_cutout_url: cutoutUrl })
       .eq('id', candidateId)
       .eq('user_id', user.id)
 
     return NextResponse.json<ApiResponse>(
-      { success: true, data: { base_photo_url: photoUrl } },
+      { success: true, data: { base_photo_url: photoUrl, base_photo_cutout_url: cutoutUrl } },
       { status: 200 },
     )
   } catch (err) {

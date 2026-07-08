@@ -20,7 +20,11 @@ export function defaultDesignFromCandidate(candidate: Candidate, templateId = DE
       secondary: candidate.secondary_color || '#ffd21e',
     },
     photo: candidate.base_photo_url
-      ? { url: candidate.base_photo_url, offset_x: 50, offset_y: 50, scale: 1 }
+      ? {
+          url: candidate.base_photo_url,
+          cutout_url: candidate.base_photo_cutout_url || undefined,
+          offset_x: 50, offset_y: 50, scale: 1,
+        }
       : undefined,
     background: { kind: 'solid', value: candidate.primary_color || '#1a56db' },
     label_position: 'bottom',

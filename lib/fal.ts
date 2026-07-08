@@ -1,65 +1,73 @@
 import { fal } from '@fal-ai/client'
-import { createServerClient } from '@/lib/supabase'
-import type { AssetType, Candidate } from '@/types'
+import { uploadToBucket } from '@/lib/storage'
 
-// Modelo padrão. Alternativas: 'fal-ai/flux/schnell' (mais rápido) ou 'fal-ai/flux-pro/v1.1' (melhor qualidade)
-const MODEL = 'fal-ai/flux/dev'
+// ============================================================
+// fal.ai — usado apenas onde a IA agrega valor às artes:
+//   1) remoção de fundo da foto do candidato (rembg)
+//   2) geração de FUNDO decorativo (sem texto, sem pessoas)
+// A arte em si é montada por template (lib/render.tsx), não por IA.
+// ============================================================
 
-function getApiKey(): string {
+function configure() {
   const key = process.env.FAL_KEY
   if (!key) throw new Error('FAL_KEY não configurada')
-  return key
+  fal.config({ credentials: key })
 }
 
-const IMAGE_SIZE_MAP: Record<AssetType, string> = {
-  santinho:  'portrait_4_3',    // 768 × 1024 — santinho eleitoral
-  banner:    'portrait_4_3',    // 768 × 1024 — banner vertical
-  perfurado: 'landscape_4_3',   // 1024 × 768 — faixa horizontal
-  social:    'square_hd',       // 1024 × 1024 — post redes sociais
-  jingle:    'square_hd',       // 1024 × 1024 — capa do jingle
+async function downloadToBuffer(url: string): Promise<Buffer> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(60_000) })
+  if (!res.ok) throw new Error(`Falha ao baixar resultado do fal.ai: ${res.status}`)
+  return Buffer.from(await res.arrayBuffer())
 }
 
-function buildPrompt(candidate: Candidate, assetType: AssetType): string {
-  const lines = [
-    `Brazilian electoral campaign material, professional graphic design, high quality print.`,
-    `Candidate: ${candidate.name}, ballot number ${candidate.election_number}, party ${candidate.party}.`,
-    candidate.slogan ? `Slogan: "${candidate.slogan}".` : '',
-    `Brand colors: primary ${candidate.primary_color}, secondary ${candidate.secondary_color}.`,
-    `Style: professional, trustworthy, patriotic, modern. No references to opponents or rival parties.`,
-    `Mandatory footer text: "Conteúdo fabricado com IA | CNPJ: ${candidate.campaign_cnpj}".`,
-  ]
+/**
+ * Remove o fundo da foto do candidato. Recebe uma URL pública (a foto já
+ * enviada ao Storage) e devolve a URL do PNG recortado, persistido no bucket.
+ */
+export async function removeBackground(imageUrl: string, storagePath: string): Promise<string> {
+  configure()
+  const result = await fal.subscribe('fal-ai/imageutils/rembg', {
+    input: { image_url: imageUrl },
+  })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const outUrl: string | undefined = (result.data as any)?.image?.url
+  if (!outUrl) throw new Error('fal.ai (rembg) não retornou imagem')
 
-  switch (assetType) {
-    case 'santinho':
-      lines.push('A6 portrait electoral flyer (santinho brasileiro), full bleed, candidate photo placeholder, bold number display.')
-      break
-    case 'banner':
-      lines.push('Tall vertical electoral banner for outdoor display, bold typography, impactful layout.')
-      break
-    case 'perfurado':
-      lines.push('Wide horizontal perforated outdoor banner for fences and walls, high contrast, readable at distance.')
-      break
-    case 'social':
-      lines.push('Square social media post (Instagram/Facebook/WhatsApp), 1:1 ratio, bold typography, campaign colors.')
-      break
-    case 'jingle':
-      lines.push('Square album art cover for electoral jingle, musical theme, campaign colors, no text.')
-      break
-  }
-
-  return lines.filter(Boolean).join(' ')
+  const buffer = await downloadToBuffer(outUrl)
+  return uploadToBucket(storagePath, buffer, 'image/png')
 }
 
-export async function generateImage(candidate: Candidate, assetType: AssetType): Promise<string> {
-  fal.config({ credentials: getApiKey() })
+// Proporções de fundo por tipo de peça (para o FLUX gerar no formato certo).
+const BG_SIZE: Record<string, string> = {
+  santinho: 'portrait_4_3',
+  banner: 'portrait_16_9',
+  perfurado: 'landscape_16_9',
+  social: 'square_hd',
+}
 
-  const prompt = buildPrompt(candidate, assetType)
+/**
+ * Gera um FUNDO decorativo (padrão/textura temática, sem texto e sem pessoas)
+ * para ser usado atrás do layout. Persiste no bucket e devolve a URL.
+ */
+export async function generateBackground(
+  assetType: string,
+  primaryColor: string,
+  storagePath: string,
+  hint?: string,
+): Promise<string> {
+  configure()
+  const prompt = [
+    'Abstract political campaign background texture, subtle geometric shapes and soft gradients',
+    `dominant color ${primaryColor}`,
+    'clean, professional, modern, NO text, NO letters, NO people, NO faces, NO logos',
+    hint ? `theme: ${hint}` : '',
+  ].filter(Boolean).join(', ')
 
-  const result = await fal.subscribe(MODEL, {
+  const result = await fal.subscribe('fal-ai/flux/dev', {
     input: {
       prompt,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      image_size: IMAGE_SIZE_MAP[assetType] as any,
+      image_size: (BG_SIZE[assetType] ?? 'square_hd') as any,
       num_inference_steps: 28,
       guidance_scale: 3.5,
       num_images: 1,
@@ -67,25 +75,10 @@ export async function generateImage(candidate: Candidate, assetType: AssetType):
       output_format: 'jpeg',
     },
   })
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const imageUrl: string | undefined = (result.data as any)?.images?.[0]?.url
-  if (!imageUrl) throw new Error('fal.ai não retornou imagem')
+  const outUrl: string | undefined = (result.data as any)?.images?.[0]?.url
+  if (!outUrl) throw new Error('fal.ai (flux) não retornou imagem')
 
-  // Baixa a imagem e faz upload para o Supabase Storage (URLs do fal.ai são temporárias)
-  const imageRes = await fetch(imageUrl, { signal: AbortSignal.timeout(60_000) })
-  if (!imageRes.ok) throw new Error(`Falha ao baixar imagem do fal.ai: ${imageRes.status}`)
-
-  const buffer = Buffer.from(await imageRes.arrayBuffer())
-  const supabase = createServerClient()
-  const storagePath = `${candidate.id}/${assetType}_${Date.now()}.jpg`
-
-  const { error: uploadError } = await supabase.storage
-    .from('generated')
-    .upload(storagePath, buffer, { contentType: 'image/jpeg', upsert: false })
-
-  if (uploadError) throw new Error(`Storage upload falhou: ${uploadError.message}`)
-
-  const { data: { publicUrl } } = supabase.storage.from('generated').getPublicUrl(storagePath)
-  return publicUrl
+  const buffer = await downloadToBuffer(outUrl)
+  return uploadToBucket(storagePath, buffer, 'image/jpeg')
 }

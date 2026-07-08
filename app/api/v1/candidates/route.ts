@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
     // Filtra SEMPRE por user_id — nunca retorna lista sem filtro de tenant
     const { data, error } = await supabase
       .from('candidates')
-      .select('id, name, election_number, party, campaign_cnpj, slogan, biography_summary, primary_color, secondary_color, base_photo_url, created_at')
+      .select('id, name, election_number, party, campaign_cnpj, slogan, biography_summary, primary_color, secondary_color, base_photo_url, base_photo_cutout_url, created_at')
       .eq('user_id', user.id)   // dupla proteção: app + RLS
       .order('created_at', { ascending: false })
 

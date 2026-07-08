@@ -68,6 +68,9 @@ CREATE TABLE IF NOT EXISTS entitlements (
 -- ============================================================
 ALTER TABLE assets ADD COLUMN IF NOT EXISTS design JSONB;
 
+-- Foto do candidato sem fundo (recorte via IA) — reutilizada em todas as peças.
+ALTER TABLE candidates ADD COLUMN IF NOT EXISTS base_photo_cutout_url TEXT;
+
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================

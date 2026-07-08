@@ -17,6 +17,7 @@ export interface Candidate {
   biography_summary: string
   cpf_encrypted: string
   base_photo_url?: string
+  base_photo_cutout_url?: string
   primary_color: string
   secondary_color: string
   created_at: string
@@ -198,28 +199,6 @@ export interface SunoCallback {
     taskId?: string
     data: SunoCallbackTrack[] | SunoLyricsCallbackData[]
   }
-}
-
-// ── Higgsfield API ───────────────────────────────────────────
-
-export interface HiggsfieldRequest {
-  prompt: string
-  aspect_ratio: string
-  resolution?: string
-}
-
-export interface HiggsfieldResponse {
-  request_id: string
-  status_url: string
-  cancel_url: string
-}
-
-export type HiggsfieldStatus = 'queued' | 'in_progress' | 'completed' | 'failed' | 'nsfw'
-
-export interface HiggsfieldStatusResponse {
-  status: HiggsfieldStatus
-  output?: { url: string }[]
-  error?: string
 }
 
 // ── API responses internas ───────────────────────────────────

@@ -1,30 +1,12 @@
 import type { Design } from '@/types'
+import { PhotoSlot, complianceLabel } from './parts'
 
-// Faixa perfurada horizontal (base 590×236). Leitura à distância:
-// número à esquerda, nome grande à direita. CSS compatível com satori.
-
-const COMPLIANCE_TEXT = 'Conteúdo fabricado com IA'
-const label = (cnpj: string) => (cnpj ? `${COMPLIANCE_TEXT} · CNPJ ${cnpj}` : COMPLIANCE_TEXT)
-
-function Photo({ design }: { design: Design }) {
-  const src = design.photo?.cutout_url || design.photo?.url
-  if (!src) {
-    return (
-      <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.08)' }}>
-        <div style={{ display: 'flex', fontFamily: 'Inter', fontWeight: 700, fontSize: 22, letterSpacing: 4, color: 'rgba(255,255,255,0.35)' }}>FOTO</div>
-      </div>
-    )
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" width="100%" height="100%" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${design.photo?.offset_x ?? 50}% ${design.photo?.offset_y ?? 50}%`, transform: `scale(${design.photo?.scale ?? 1})` }} />
-  )
-}
+// Faixa perfurada horizontal (base 590×236). Leitura à distância.
 
 function Footer({ design }: { design: Design }) {
   return (
     <div style={{ display: 'flex', position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center', padding: '3px 10px', background: 'rgba(0,0,0,0.55)', color: 'white', fontFamily: 'Inter', fontSize: 8 }}>
-      {label(design.fields.cnpj)}
+      {complianceLabel(design.fields.cnpj)}
     </div>
   )
 }
@@ -64,19 +46,19 @@ export function PerfuradoTemplate({ design }: { design: Design }) {
       <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative', background: colors.primary, alignItems: 'center' }}>
         <div style={{ display: 'flex', paddingLeft: 24 }}>{numberBlock}</div>
         {nameBlock}
-        <div style={{ display: 'flex', width: 200, height: '100%', overflow: 'hidden' }}>
-          <Photo design={design} />
+        <div style={{ display: 'flex', width: 200, height: '100%' }}>
+          <PhotoSlot design={design} placeholderSize={18} />
         </div>
         <Footer design={design} />
       </div>
     )
   }
 
-  // classico: número à esquerda sobre bloco de cor, foto de fundo
+  // classico: foto de fundo com degradê à esquerda; número + nome por cima
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: colors.primary }}>
+    <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative' }}>
       <div style={{ display: 'flex', position: 'absolute', inset: 0 }}>
-        <Photo design={design} />
+        <PhotoSlot design={design} placeholderSize={18} />
       </div>
       <div style={{ display: 'flex', position: 'absolute', inset: 0, backgroundImage: `linear-gradient(to right, ${colors.primary} 45%, rgba(0,0,0,0.15) 100%)` }} />
       <div style={{ display: 'flex', position: 'relative', alignItems: 'center', paddingLeft: 28 }}>{numberBlock}</div>
