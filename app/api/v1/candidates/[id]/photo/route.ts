@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { validateMagicBytes } from '@/lib/validation'
 import { uploadToBucket } from '@/lib/storage'
 import { removeBackground } from '@/lib/fal'
+import { log, captureError, requestIdFrom } from '@/lib/log'
 import type { ApiResponse } from '@/types'
 
 export const runtime = 'nodejs'
@@ -20,6 +21,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const request_id = requestIdFrom(req)
   try {
     const supabase = createServerClient()
 
@@ -104,7 +106,7 @@ export async function POST(
     try {
       photoUrl = await uploadToBucket(`${candidateId}/base_photo_${Date.now()}.${ext}`, buffer, mime)
     } catch (e) {
-      console.error('[photo] upload error:', e)
+      captureError(e, { request_id, tenant_id: candidateId, user_id: user.id }, 'photo: erro no upload')
       return NextResponse.json<ApiResponse>(
         { success: false, error: 'Erro ao fazer upload da foto.' },
         { status: 500 },
@@ -116,7 +118,7 @@ export async function POST(
     try {
       cutoutUrl = await removeBackground(photoUrl, `${candidateId}/base_photo_cutout_${Date.now()}.png`)
     } catch (e) {
-      console.warn('[photo] remoção de fundo falhou (não crítico):', e instanceof Error ? e.message : e)
+      log.warn({ request_id, tenant_id: candidateId }, `photo: remoção de fundo falhou (não crítico) — ${e instanceof Error ? e.message : String(e)}`)
     }
 
     // 7. Atualiza candidato
@@ -131,7 +133,7 @@ export async function POST(
       { status: 200 },
     )
   } catch (err) {
-    console.error('[photo] error:', err)
+    captureError(err, { request_id }, 'photo: erro inesperado ao processar foto')
     return NextResponse.json<ApiResponse>(
       { success: false, error: 'Erro interno ao processar foto.' },
       { status: 500 },

@@ -3,6 +3,7 @@ import { loadOwnedAsset } from '@/lib/asset-auth'
 import { sanitizeDesign } from '@/lib/design'
 import { generateBackground } from '@/lib/fal'
 import { signedUrlFromPublic } from '@/lib/storage'
+import { captureError, requestIdFrom } from '@/lib/log'
 import type { ApiResponse, AssetType } from '@/types'
 
 export const runtime = 'nodejs'
@@ -81,8 +82,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const bg_media_url = await signedUrlFromPublic(bgUrl)
     return NextResponse.json<ApiResponse>({ success: true, data: { background_url: bg_media_url, design: newDesign } })
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err)
-    console.error('[designs/background] error:', err)
-    return NextResponse.json<ApiResponse>({ success: false, error: `Erro ao gerar fundo: ${detail}` }, { status: 500 })
+    captureError(err, { request_id: requestIdFrom(req), tenant_id: asset.candidate_id, asset_id: id }, 'designs/background: erro ao gerar fundo')
+    return NextResponse.json<ApiResponse>({ success: false, error: 'Não foi possível gerar o fundo. Tente novamente.' }, { status: 500 })
   }
 }

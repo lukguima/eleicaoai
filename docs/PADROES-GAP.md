@@ -19,10 +19,14 @@ Status da aplicação dos padrões globais (`~/.claude/skills/padroes-engenharia
 
 ## ⚠️ Pendente — código (retrofit, baixo risco)
 
-Converter os `console.*` restantes (rotas de leitura e admin) para `log`:
-`candidates`, `candidates/[id]/photo`, `designs` (POST), `jingle/lyrics`, `designs/[id]/background`,
-`campaign`, `orders/[id]`, `products`, `assets/*`, `admin/*`.
-> Fazer conforme forem tocados; features novas já nascem com log estruturado (a skill exige).
+`console.*` já convertido em **todas as rotas de escrita/externas** (candidates, photo,
+designs POST, jingle/lyrics, designs/background) além dos caminhos críticos.
+Restam apenas **rotas de leitura** (`campaign`, `orders/[id]`, `products`, `assets/*`) e o
+**painel admin** (`admin/*`) — baixo risco, converter conforme forem tocados.
+> Features novas já nascem com log estruturado (a skill `padroes-engenharia` exige).
+
+Extras já aplicados: **`/api/health`** (health check p/ Coolify e K6) e **reaproveitamento
+de rascunho pendente** em `POST /designs` (evita acúmulo de assets a cada abertura do editor).
 
 **DTO / data minimization (RNF01):** trocar `select('*')` por seleção explícita nas rotas que
 devolvem dados ao client (`designs`, `jingle/*` buscam candidato inteiro para uso interno — ok;

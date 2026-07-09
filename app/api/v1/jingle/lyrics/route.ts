@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { generateLyrics } from '@/lib/lyrics'
 import { rateLimit } from '@/lib/rate-limit'
+import { captureError, requestIdFrom } from '@/lib/log'
 import type { ApiResponse, Candidate, JingleStyle } from '@/types'
 
 export const runtime = 'nodejs'
@@ -14,6 +15,7 @@ const STYLES: JingleStyle[] = ['Sertanejo Universitário', 'Forró', 'Funk Gospe
 // revisa/edita/regenera à vontade antes de gastar a música.
 
 export async function POST(req: NextRequest) {
+  const request_id = requestIdFrom(req)
   try {
     const supabase = createServerClient()
 
@@ -50,8 +52,7 @@ export async function POST(req: NextRequest) {
     const lyrics = await generateLyrics(candidate as Candidate, style as JingleStyle, typeof extra === 'string' ? extra : undefined)
     return NextResponse.json<ApiResponse>({ success: true, data: { lyrics } })
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err)
-    console.error('[jingle/lyrics] error:', err)
-    return NextResponse.json<ApiResponse>({ success: false, error: detail }, { status: 500 })
+    captureError(err, { request_id }, 'jingle/lyrics: erro ao gerar letra')
+    return NextResponse.json<ApiResponse>({ success: false, error: 'Não foi possível gerar a letra. Tente novamente.' }, { status: 500 })
   }
 }

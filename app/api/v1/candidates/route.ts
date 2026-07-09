@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { candidateSchema } from '@/lib/validation'
 import { encryptCpf, validateCpf, logComplianceEvent } from '@/lib/compliance'
+import { captureError, requestIdFrom } from '@/lib/log'
 import type { ApiResponse } from '@/types'
 
 // ── POST /api/v1/candidates ───────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const request_id = requestIdFrom(req)
   try {
     const supabase = createServerClient()
 
@@ -85,7 +87,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (insertError || !candidate) {
-      console.error('[candidates] insert error:', insertError)
+      captureError(insertError, { request_id, user_id: user.id }, 'candidates: erro ao inserir candidatura')
       return NextResponse.json<ApiResponse>(
         { success: false, error: 'Erro ao criar candidatura.' },
         { status: 500 }
@@ -97,10 +99,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json<ApiResponse>({ success: true, data: { id: candidate.id } }, { status: 201 })
   } catch (err) {
-    const detail = err instanceof Error ? err.stack ?? err.message : String(err)
-    console.error('[candidates] unexpected error:', detail)
+    captureError(err, { request_id }, 'candidates: erro inesperado no cadastro')
     return NextResponse.json<ApiResponse>(
-      { success: false, error: `Erro interno: ${err instanceof Error ? err.message : String(err)}` },
+      { success: false, error: 'Erro ao criar candidatura.' },
       { status: 500 }
     )
   }
@@ -146,10 +147,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json<ApiResponse>({ success: true, data })
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err)
-    console.error('[candidates] GET error:', err)
+    captureError(err, { request_id: requestIdFrom(req) }, 'candidates: erro ao listar candidaturas')
     return NextResponse.json<ApiResponse>(
-      { success: false, error: `Erro ao buscar candidatos: ${detail}` },
+      { success: false, error: 'Erro ao buscar candidaturas.' },
       { status: 500 }
     )
   }
