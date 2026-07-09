@@ -5,6 +5,7 @@ import { grantOrderEntitlements } from '@/lib/orders'
 import { checkMusic } from '@/lib/suno'
 import { persistAudio } from '@/lib/storage'
 import { consumeEntitlement, releaseEntitlement } from '@/lib/entitlements'
+import { captureError } from '@/lib/log'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
           await supabase.from('orders').update({ status: payment.status === 'rejected' ? 'rejected' : 'expired' }).eq('id', order.id)
         }
       } catch (e) {
-        console.error('[reconcile] order', order.id, e)
+        captureError(e, { request_id: 'cron-reconcile', order_id: order.id }, 'reconcile: falha ao reconciliar pedido')
       }
     }
   }
@@ -77,7 +78,7 @@ export async function GET(req: NextRequest) {
         report.jingles_failed++
       }
     } catch (e) {
-      console.error('[reconcile] jingle', a.id, e)
+      captureError(e, { request_id: 'cron-reconcile', tenant_id: a.candidate_id, asset_id: a.id }, 'reconcile: falha ao reconciliar jingle')
     }
   }
 

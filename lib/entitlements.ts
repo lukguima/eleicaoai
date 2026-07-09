@@ -1,4 +1,5 @@
 import { createServerClient } from './supabase'
+import { log } from './log'
 import type { AssetType } from '@/types'
 
 // ============================================================
@@ -37,7 +38,7 @@ export async function claimEntitlement(
   })
 
   if (error) {
-    console.error('[entitlements] claim error:', error.message)
+    log.error({ tenant_id: candidateId, asset_type: assetType }, `entitlements: erro no claim — ${error.message}`)
     return null
   }
   return (data as string | null) ?? null
@@ -80,7 +81,7 @@ export async function consumeMusicRegen(entitlementId: string): Promise<boolean>
     p_entitlement_id: entitlementId,
   })
   if (error) {
-    console.error('[entitlements] regen error:', error.message)
+    log.error({ entitlement_id: entitlementId }, `entitlements: erro ao consumir regravação — ${error.message}`)
     return false
   }
   return data as boolean

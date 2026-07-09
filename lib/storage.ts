@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase'
+import { log } from '@/lib/log'
 
 const BUCKET = 'generated'
 
@@ -70,7 +71,7 @@ export async function persistAudio(
     .upload(storagePath, buffer, { contentType: 'audio/mpeg', upsert: true })
 
   if (error) {
-    console.warn(`[storage] upload áudio falhou (${error.message}), usando URL do Suno`)
+    log.warn({ tenant_id: candidateId, asset_id: assetId }, `storage: upload de áudio falhou (${error.message}), usando URL do Suno`)
     return audioUrl
   }
 

@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { createServerClient } from '@/lib/supabase'
 import { persistAudio } from '@/lib/storage'
 import { consumeEntitlement, releaseEntitlement } from '@/lib/entitlements'
+import { log, captureError, requestIdFrom } from '@/lib/log'
 import type { SunoCallback, SunoCallbackTrack } from '@/types'
 
 // ── POST /api/webhooks/suno?asset_id=..&type=music&s=SECRET ───
@@ -16,6 +17,7 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  const request_id = requestIdFrom(req)
   try {
     const { searchParams } = new URL(req.url)
     const assetId = searchParams.get('asset_id')
@@ -28,7 +30,7 @@ export async function POST(req: NextRequest) {
     // Valida o segredo do callback (defesa além do UUID opaco)
     const expected = process.env.SUNO_WEBHOOK_SECRET ?? ''
     if (expected && !safeEqual(secret, expected)) {
-      console.error('[webhook/suno] segredo inválido')
+      log.warn({ request_id, asset_id: assetId }, 'webhook/suno: segredo inválido')
       return NextResponse.json({ error: 'não autorizado' }, { status: 401 })
     }
 
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (!asset) {
-      console.error('[webhook/suno] asset não encontrado:', assetId)
+      log.warn({ request_id, asset_id: assetId }, 'webhook/suno: asset não encontrado')
       return NextResponse.json({ error: 'asset não encontrado' }, { status: 404 })
     }
     if (asset.status === 'done') {
@@ -76,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('[webhook/suno] error:', err)
+    captureError(err, { request_id }, 'webhook/suno: erro ao processar callback')
     return NextResponse.json({ ok: true }) // evita retries infinitos
   }
 }

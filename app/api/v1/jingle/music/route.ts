@@ -4,6 +4,7 @@ import { generateJingle, waitForMusic } from '@/lib/suno'
 import { persistAudio } from '@/lib/storage'
 import { claimEntitlement, consumeEntitlement, releaseEntitlement, consumeMusicRegen, BYPASS_ENTITLEMENT } from '@/lib/entitlements'
 import { logComplianceEvent } from '@/lib/compliance'
+import { captureError, requestIdFrom } from '@/lib/log'
 import type { ApiResponse, Candidate, JingleStyle } from '@/types'
 
 export const runtime = 'nodejs'
@@ -17,6 +18,7 @@ const STYLES: JingleStyle[] = ['Sertanejo Universitário', 'Forró', 'Funk Gospe
 //  - Com asset_id: regravação → consome uma cota music_regens_left.
 
 export async function POST(req: NextRequest) {
+  const request_id = requestIdFrom(req)
   try {
     const supabase = createServerClient()
 
@@ -105,7 +107,7 @@ export async function POST(req: NextRequest) {
     await supabase.from('assets').update({ external_task_id: taskId }).eq('id', assetId)
 
     pollMusicFallback(assetId, candidate_id, taskId, entitlementId, isRegen)
-      .catch(err => console.error('[jingle/music] poll error:', err))
+      .catch(err => captureError(err, { request_id, tenant_id: candidate_id, asset_id: assetId }, 'jingle/music: erro no polling de fallback'))
 
     await logComplianceEvent({ event_type: 'JINGLE_GENERATION', candidate_id, asset_id: assetId, ai_model: 'Suno-V5.5' })
 
@@ -114,9 +116,8 @@ export async function POST(req: NextRequest) {
       { status: 202 },
     )
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err)
-    console.error('[jingle/music] error:', err)
-    return NextResponse.json<ApiResponse>({ success: false, error: detail }, { status: 500 })
+    captureError(err, { request_id }, 'jingle/music: erro inesperado')
+    return NextResponse.json<ApiResponse>({ success: false, error: 'Não foi possível gerar o jingle. Tente novamente.' }, { status: 500 })
   }
 }
 

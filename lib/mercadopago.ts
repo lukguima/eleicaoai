@@ -3,6 +3,7 @@
 // Sem o token, o sistema usa bypass (gera sem cobrança — ideal para dev).
 
 import crypto from 'crypto'
+import { log } from '@/lib/log'
 
 const BASE = 'https://api.mercadopago.com'
 
@@ -34,7 +35,7 @@ export function verifyWebhookSignature(params: {
 }): boolean {
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET
   if (!secret) {
-    console.error('[mercadopago] MERCADOPAGO_WEBHOOK_SECRET não configurado — webhook rejeitado')
+    log.error({}, 'mercadopago: MERCADOPAGO_WEBHOOK_SECRET não configurado — webhook rejeitado')
     return false
   }
   const { xSignature, xRequestId, dataId } = params

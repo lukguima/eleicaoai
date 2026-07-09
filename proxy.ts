@@ -5,8 +5,16 @@ const PROTECTED = ['/dashboard', '/onboarding', '/planos', '/criar', '/orders', 
 const AUTH_ONLY = ['/']
 
 export async function proxy(req: NextRequest) {
-  const res = NextResponse.next()
   const { pathname } = req.nextUrl
+
+  // X-Request-ID: gera se não veio do client e propaga para as rotas (via header
+  // da request) e de volta ao client (header da response) — trace fim a fim.
+  const requestId = req.headers.get('x-request-id') ?? crypto.randomUUID()
+  const requestHeaders = new Headers(req.headers)
+  requestHeaders.set('x-request-id', requestId)
+
+  const res = NextResponse.next({ request: { headers: requestHeaders } })
+  res.headers.set('x-request-id', requestId)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

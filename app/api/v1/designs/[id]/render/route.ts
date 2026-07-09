@@ -5,6 +5,7 @@ import { renderDesign, renderDesignToPdf } from '@/lib/render'
 import { uploadToBucket, signedUrlFromPublic } from '@/lib/storage'
 import { claimEntitlement, consumeEntitlement, releaseEntitlement } from '@/lib/entitlements'
 import { logComplianceEvent } from '@/lib/compliance'
+import { captureError, requestIdFrom } from '@/lib/log'
 import type { ApiResponse, AssetType } from '@/types'
 
 export const runtime = 'nodejs'
@@ -76,9 +77,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json<ApiResponse>({ success: true, data: { asset_id: id, media_url, pdf_url: pdf_media_url } })
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err)
-    console.error('[designs/render] error:', err)
+    captureError(err, { request_id: requestIdFrom(req), tenant_id: asset.candidate_id, asset_id: id }, 'designs/render: falha ao renderizar')
     if (firstFinalization && entitlementId) await releaseEntitlement(entitlementId)
     await supabase.from('assets').update({ status: 'failed', error_message: detail }).eq('id', id)
-    return NextResponse.json<ApiResponse>({ success: false, error: `Erro ao gerar arquivo: ${detail}` }, { status: 500 })
+    return NextResponse.json<ApiResponse>({ success: false, error: 'Não foi possível gerar o arquivo. Tente novamente.' }, { status: 500 })
   }
 }

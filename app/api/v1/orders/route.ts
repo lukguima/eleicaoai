@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { createPreference, isPaymentEnabled, isSandboxToken } from '@/lib/mercadopago'
 import { priceItems, grantOrderEntitlements } from '@/lib/orders'
 import { rateLimit } from '@/lib/rate-limit'
+import { log, captureError, requestIdFrom } from '@/lib/log'
 import type { ApiResponse } from '@/types'
 
 // ── POST /api/v1/orders ───────────────────────────────────────
@@ -11,6 +12,7 @@ import type { ApiResponse } from '@/types'
 // e devolve a URL de checkout; a liberação vem pelo webhook.
 
 export async function POST(req: NextRequest) {
+  const request_id = requestIdFrom(req)
   try {
     const supabase = createServerClient()
 
@@ -57,7 +59,7 @@ export async function POST(req: NextRequest) {
       .select('id')
       .single()
     if (orderErr || !order) {
-      console.error('[orders] insert error:', orderErr)
+      captureError(orderErr, { request_id, tenant_id: candidate_id, user_id: user.id }, 'orders: erro ao inserir pedido')
       return NextResponse.json<ApiResponse>({ success: false, error: 'Erro ao criar pedido.' }, { status: 500 })
     }
     await supabase.from('order_items').insert(
@@ -96,8 +98,7 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err)
-    console.error('[orders] error:', err)
-    return NextResponse.json<ApiResponse>({ success: false, error: `Erro no pedido: ${detail}` }, { status: 500 })
+    captureError(err, { request_id }, 'orders: erro inesperado ao criar pedido')
+    return NextResponse.json<ApiResponse>({ success: false, error: 'Erro ao processar o pedido.' }, { status: 500 })
   }
 }

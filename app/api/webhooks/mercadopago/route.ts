@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { getPayment, verifyWebhookSignature } from '@/lib/mercadopago'
 import { grantOrderEntitlements } from '@/lib/orders'
+import { log, captureError, requestIdFrom } from '@/lib/log'
 
 // ── POST /api/webhooks/mercadopago ────────────────────────────
 // Valida a assinatura, confirma o pagamento e marca o PEDIDO como pago,
@@ -9,6 +10,7 @@ import { grantOrderEntitlements } from '@/lib/orders'
 // das peças é feita pelo usuário no editor/wizard.
 
 export async function POST(req: NextRequest) {
+  const request_id = requestIdFrom(req)
   try {
     const body = await req.json()
     if (body?.type !== 'payment' || !body?.data?.id) {
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
       dataId: dataIdQuery ?? mpPaymentId,
     })
     if (!validSignature) {
-      console.error('[mp-webhook] assinatura inválida — requisição rejeitada')
+      log.warn({ request_id }, 'mp-webhook: assinatura inválida — requisição rejeitada')
       return NextResponse.json({ error: 'assinatura inválida' }, { status: 401 })
     }
 
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (!order) {
-      console.error('[mp-webhook] pedido não encontrado:', orderId)
+      log.warn({ request_id, order_id: orderId }, 'mp-webhook: pedido não encontrado')
       return NextResponse.json({ received: true }, { status: 200 })
     }
     if (order.status === 'paid') {
@@ -49,14 +51,16 @@ export async function POST(req: NextRequest) {
     if (mpPayment.status === 'approved') {
       await supabase.from('orders').update({ status: 'paid', mp_payment_id: mpPaymentId }).eq('id', order.id)
       await grantOrderEntitlements(order.id, order.candidate_id)
+      log.info({ request_id, tenant_id: order.candidate_id, order_id: order.id }, 'mp-webhook: pedido pago, entitlements liberados')
     } else if (['rejected', 'cancelled', 'refunded'].includes(mpPayment.status)) {
       const map: Record<string, string> = { rejected: 'rejected', cancelled: 'expired', refunded: 'refunded' }
       await supabase.from('orders').update({ status: map[mpPayment.status], mp_payment_id: mpPaymentId }).eq('id', order.id)
+      log.info({ request_id, tenant_id: order.candidate_id, order_id: order.id, mp_status: mpPayment.status }, 'mp-webhook: pagamento não aprovado')
     }
 
     return NextResponse.json({ received: true }, { status: 200 })
   } catch (err) {
-    console.error('[mp-webhook] error:', err)
+    captureError(err, { request_id }, 'mp-webhook: erro ao processar notificação')
     return NextResponse.json({ received: true }, { status: 200 })
   }
 }
