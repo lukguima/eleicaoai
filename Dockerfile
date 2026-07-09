@@ -33,6 +33,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# libc6-compat é necessário para os binários nativos (sharp, @resvg/resvg-js) no Alpine/musl
+RUN apk add --no-cache libc6-compat
+
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
@@ -42,6 +45,8 @@ RUN mkdir .next && chown nextjs:nodejs .next
 
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Fontes usadas pelo motor de render (satori) — lidas em runtime via fs
+COPY --from=builder --chown=nextjs:nodejs /app/assets ./assets
 
 USER nextjs
 
