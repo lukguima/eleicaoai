@@ -15,9 +15,9 @@ export const PACKAGE_ASSET_TYPES: AssetType[] = [
 /** Sentinela retornada quando a cobrança está desativada (dev/staging). */
 export const BYPASS_ENTITLEMENT = 'bypass'
 
-/** Em dev/staging pula a exigência de pagamento. Nunca ativar em produção. */
+/** Em dev/staging pula a exigência de pagamento. Nunca definir em produção. */
 function isBypass(): boolean {
-  return process.env.STAGE_BYPASS_PAYMENT === 'true' || process.env.BYPASS_PAYMENT === 'true'
+  return process.env.STAGE_BYPASS_PAYMENT === 'true'
 }
 
 /**

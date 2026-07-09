@@ -8,7 +8,7 @@ import type { ApiResponse, AssetType } from '@/types'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-const isBypass = () => process.env.STAGE_BYPASS_PAYMENT === 'true' || process.env.BYPASS_PAYMENT === 'true'
+const isBypass = () => process.env.STAGE_BYPASS_PAYMENT === 'true'
 
 // ── POST /api/v1/designs/[id]/background ──────────────────────
 // Gera um fundo decorativo por IA (sem texto/pessoas) e o grava no design.

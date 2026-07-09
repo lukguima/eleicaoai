@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     )
 
     // ── Bypass (dev/staging ou sem MP): paga e libera na hora ──
-    const bypass = !isPaymentEnabled() || process.env.STAGE_BYPASS_PAYMENT === 'true' || process.env.BYPASS_PAYMENT === 'true'
+    const bypass = !isPaymentEnabled() || process.env.STAGE_BYPASS_PAYMENT === 'true'
     if (bypass) {
       await supabase.from('orders').update({ status: 'paid' }).eq('id', order.id)
       await grantOrderEntitlements(order.id, candidate_id)
