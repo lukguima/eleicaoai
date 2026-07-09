@@ -71,14 +71,15 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
   }, [token, asset, fetchAssetDirect])
 
   async function handleRegen() {
-    if (!token || !editedLyrics.trim()) return
+    if (!token || !editedLyrics.trim() || !asset) return
     setRegenLoading(true)
     setRegenError(null)
     try {
-      const res = await fetch(`/api/v1/assets/${assetId}/regen`, {
+      const style = (asset.metadata as Record<string, unknown>)?.style as string ?? 'Sertanejo Universitário'
+      const res = await fetch(`/api/v1/jingle/music`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ lyrics: editedLyrics }),
+        body: JSON.stringify({ candidate_id: asset.candidate_id, asset_id: assetId, style, lyrics: editedLyrics }),
       })
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
@@ -218,6 +219,9 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
                 ) : (
                   <p className="text-sm text-gray-400">Preparando o áudio…</p>
                 )}
+                <p className="text-xs text-gray-400">
+                  🔊 O áudio abre com o aviso “Este conteúdo foi fabricado utilizando inteligência artificial”, obrigatório pela Res. TSE nº 23.732/2024.
+                </p>
               </div>
             ) : (
               <div>
