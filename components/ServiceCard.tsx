@@ -54,7 +54,7 @@ export default function ServiceCard({ service, featured = false }: Props) {
             <span className="text-xs text-gray-400 ml-1">/ peça</span>
           </div>
           <Link
-            href={`/order/${service.type}`}
+            href={"/planos"}
             className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-colors ${
               featured
                 ? 'bg-blue-600 hover:bg-blue-700 text-white'

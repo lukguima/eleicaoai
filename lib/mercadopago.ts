@@ -123,3 +123,20 @@ export async function getPayment(mpPaymentId: string): Promise<MpPayment> {
   if (!res.ok) throw new Error(`MP getPayment error ${res.status}`)
   return res.json() as Promise<MpPayment>
 }
+
+/**
+ * Busca o pagamento mais relevante de um pedido pela referência externa
+ * (usado na reconciliação, quando o webhook não chegou). Retorna null se
+ * não houver nenhum.
+ */
+export async function searchPaymentByRef(externalRef: string): Promise<MpPayment | null> {
+  const res = await fetch(`${BASE}/v1/payments/search?external_reference=${encodeURIComponent(externalRef)}`, {
+    headers: { Authorization: auth() },
+  })
+  if (!res.ok) return null
+  const json = (await res.json()) as { results?: MpPayment[] }
+  const results = json.results ?? []
+  if (results.length === 0) return null
+  // Prioriza um pagamento aprovado, senão o primeiro
+  return results.find(p => p.status === 'approved') ?? results[0]
+}

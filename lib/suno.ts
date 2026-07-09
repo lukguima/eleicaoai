@@ -110,6 +110,21 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+/** Checagem única do status da música (usada pela reconciliação por cron). */
+export async function checkMusic(taskId: string): Promise<{ status: 'done' | 'failed' | 'pending'; audioUrl?: string }> {
+  const res = await sunoGet<{ data?: MusicRecord }>(`/generate/record-info?taskId=${taskId}`)
+  const record = res.data
+  if (!record) return { status: 'pending' }
+  if (record.status === 'SUCCESS') {
+    const audioUrl = record.response?.sunoData?.[0]?.audioUrl
+    if (audioUrl) return { status: 'done', audioUrl }
+  }
+  if (record.status?.includes('FAILED') || record.status?.includes('EXCEPTION')) {
+    return { status: 'failed' }
+  }
+  return { status: 'pending' }
+}
+
 export async function getSunoCredits(): Promise<number> {
   const res = await fetch(`${SUNO_BASE_URL}/credits`, {
     headers: { Authorization: `Bearer ${getApiKey()}` },

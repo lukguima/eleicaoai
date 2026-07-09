@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { getPayment, verifyWebhookSignature } from '@/lib/mercadopago'
+import { grantOrderEntitlements } from '@/lib/orders'
 
 // ── POST /api/webhooks/mercadopago ────────────────────────────
-// Modelo novo: o webhook NÃO gera conteúdo. Ele valida a notificação,
-// confirma o pagamento e marca o pedido como pago. A liberação de
-// direitos (entitlements) contra `orders` é feita na Fase 4.
-// A geração de peças acontece pelo editor/render, no ritmo do usuário.
+// Valida a assinatura, confirma o pagamento e marca o PEDIDO como pago,
+// liberando os entitlements (idempotente). NÃO gera conteúdo — a criação
+// das peças é feita pelo usuário no editor/wizard.
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,25 +30,33 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServerClient()
     const mpPayment = await getPayment(mpPaymentId)
+    const orderId = mpPayment.external_reference
 
-    const statusMap: Record<string, string> = {
-      approved: 'approved',
-      rejected: 'rejected',
-      cancelled: 'expired',
-      refunded: 'refunded',
+    const { data: order } = await supabase
+      .from('orders')
+      .select('id, status, candidate_id')
+      .eq('id', orderId)
+      .single()
+
+    if (!order) {
+      console.error('[mp-webhook] pedido não encontrado:', orderId)
+      return NextResponse.json({ received: true }, { status: 200 })
     }
-    const mapped = statusMap[mpPayment.status]
-    if (mapped) {
-      await supabase
-        .from('payments')
-        .update({ status: mapped, mp_payment_id: mpPaymentId })
-        .eq('id', mpPayment.external_reference)
+    if (order.status === 'paid') {
+      return NextResponse.json({ received: true }, { status: 200 }) // idempotência
+    }
+
+    if (mpPayment.status === 'approved') {
+      await supabase.from('orders').update({ status: 'paid', mp_payment_id: mpPaymentId }).eq('id', order.id)
+      await grantOrderEntitlements(order.id, order.candidate_id)
+    } else if (['rejected', 'cancelled', 'refunded'].includes(mpPayment.status)) {
+      const map: Record<string, string> = { rejected: 'rejected', cancelled: 'expired', refunded: 'refunded' }
+      await supabase.from('orders').update({ status: map[mpPayment.status], mp_payment_id: mpPaymentId }).eq('id', order.id)
     }
 
     return NextResponse.json({ received: true }, { status: 200 })
   } catch (err) {
     console.error('[mp-webhook] error:', err)
-    // Sempre 200 para o MP não retentar indefinidamente
     return NextResponse.json({ received: true }, { status: 200 })
   }
 }

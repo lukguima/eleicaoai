@@ -37,7 +37,7 @@ function SuccessContent() {
         return
       }
 
-      const res = await fetch(`/api/v1/payments/status?ref=${ref}`, {
+      const res = await fetch(`/api/v1/orders/${ref}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
       const json = await res.json()
@@ -48,11 +48,11 @@ function SuccessContent() {
         return
       }
 
-      const { status, asset_id } = json.data as { status: string; asset_id: string | null }
+      const { status } = json.data as { status: string }
 
-      if (status === 'approved' && asset_id) {
+      if (status === 'paid') {
         setStage('ready')
-        router.replace(`/orders/${asset_id}`)
+        router.replace(`/dashboard`)
         return
       }
 
@@ -134,8 +134,8 @@ function SuccessContent() {
           {stage === 'loading'
             ? 'Verificando seu pagamento...'
             : stage === 'ready'
-            ? 'Redirecionando para seu material...'
-            : 'Gerando seu material eleitoral com IA. Isso leva até 2 minutos.'}
+            ? 'Tudo liberado! Redirecionando para o seu painel...'
+            : 'Confirmando o pagamento junto ao Mercado Pago...'}
         </p>
 
         <div className="w-full bg-surface-variant rounded-full h-1.5 mb-3">

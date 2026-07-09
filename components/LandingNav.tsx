@@ -24,7 +24,7 @@ export default function LandingNav() {
             Entrar
           </Link>
           <Link
-            href="/order/santinho"
+            href="/planos"
             className="bg-primary text-on-primary text-sm font-semibold px-5 py-2.5 rounded-lg hover:opacity-90 transition-all shadow-sm"
           >
             Criar material →
@@ -52,7 +52,7 @@ export default function LandingNav() {
             <a href="#depoimentos" className="text-sm text-on-surface py-2.5 border-b border-outline-variant/40" onClick={() => setOpen(false)}>Depoimentos</a>
             <Link href="/login" className="text-sm text-on-surface py-2.5 border-b border-outline-variant/40">Entrar</Link>
             <Link
-              href="/order/santinho"
+              href="/planos"
               className="mt-2 bg-primary text-on-primary text-sm font-semibold px-5 py-3 rounded-lg text-center"
               onClick={() => setOpen(false)}
             >

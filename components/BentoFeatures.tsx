@@ -360,7 +360,7 @@ export default function BentoFeatures({ services }: Props) {
             {/* Footer CTA */}
             <div className="px-6 pb-6 flex gap-3">
               <Link
-                href={`/order/${selected}`}
+                href={"/planos"}
                 className="flex-1 bg-secondary text-on-secondary text-center font-headline font-bold py-3 px-4 rounded-xl hover:brightness-110 transition-all text-sm"
               >
                 Gerar agora →

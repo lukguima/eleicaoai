@@ -118,7 +118,7 @@ export default async function HomePage() {
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <Link
-                href="/order/santinho"
+                href="/planos"
                 className="inline-flex items-center justify-center gap-2 bg-tertiary-fixed text-on-tertiary-fixed px-8 py-4 rounded-xl font-headline font-bold text-base shadow-lg hover:brightness-110 transition-all"
               >
                 Criar meu material agora →
@@ -322,7 +322,7 @@ export default async function HomePage() {
               <ul className="space-y-2.5">
                 {services.map(s => (
                   <li key={s.type}>
-                    <Link href={`/order/${s.type}`} className="text-white/40 text-sm hover:text-white transition-colors">
+                    <Link href={"/planos"} className="text-white/40 text-sm hover:text-white transition-colors">
                       {s.label}
                     </Link>
                   </li>
