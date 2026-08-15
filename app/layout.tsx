@@ -12,7 +12,16 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eleicaoai.com.br'
+function safeSiteUrl(): string {
+  const raw = (process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://eleicaoai.com.br').trim()
+  const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+  try {
+    return new URL(withProto).origin
+  } catch {
+    return 'https://eleicaoai.com.br'
+  }
+}
+const SITE_URL = safeSiteUrl()
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

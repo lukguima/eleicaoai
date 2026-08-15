@@ -16,24 +16,28 @@ export async function proxy(req: NextRequest) {
   const res = NextResponse.next({ request: { headers: requestHeaders } })
   res.headers.set('x-request-id', requestId)
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return req.cookies.getAll()
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  let session: { user?: unknown } | null = null
+  if (supabaseUrl && supabaseKey && !supabaseUrl.includes('placeholder')) {
+    try {
+      const supabase = createServerClient(supabaseUrl, supabaseKey, {
+        cookies: {
+          getAll() {
+            return req.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              res.cookies.set(name, value, options)
+            )
+          },
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            res.cookies.set(name, value, options)
-          )
-        },
-      },
+      })
+      session = (await supabase.auth.getSession()).data.session
+    } catch {
+      session = null
     }
-  )
-
-  const { data: { session } } = await supabase.auth.getSession()
+  }
 
   if (session && AUTH_ONLY.includes(pathname)) {
     return NextResponse.redirect(new URL('/dashboard', req.url))
