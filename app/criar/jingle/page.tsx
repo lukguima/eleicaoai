@@ -209,6 +209,22 @@ export default function CriarJinglePage() {
               <button onClick={() => setStep(1)} className="text-sm text-gray-500 hover:text-gray-800 underline">← Trocar estilo</button>
             </div>
 
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Ritmo musical</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {STYLES.map(s => (
+                  <button key={s.value} type="button" onClick={() => setStyle(s.value)}
+                    className={`flex items-start gap-2 p-3 rounded-xl text-left border-2 transition-all ${style === s.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300'}`}>
+                    <span className="text-xl shrink-0">{s.emoji}</span>
+                    <div>
+                      <p className={`text-sm font-bold ${style === s.value ? 'text-blue-700' : 'text-gray-900'}`}>{s.value}</p>
+                      <p className="text-xs text-gray-500">{s.desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <textarea value={lyrics} onChange={e => setLyrics(e.target.value)} rows={16}
               className="w-full text-sm text-gray-800 leading-relaxed font-mono border border-gray-300 rounded-xl p-4 resize-y focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" />
 

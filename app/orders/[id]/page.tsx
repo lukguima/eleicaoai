@@ -4,7 +4,8 @@ import { use, useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createBrowserClient } from '@/lib/supabase'
-import type { Asset } from '@/types'
+import { JINGLE_STYLES } from '@/lib/office'
+import type { Asset, JingleStyle } from '@/types'
 
 type AssetWithMedia = Asset & { media_url?: string | null }
 
@@ -24,6 +25,7 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
   const [notFound, setNotFound] = useState(false)
   const [editingLyrics, setEditingLyrics] = useState(false)
   const [editedLyrics, setEditedLyrics] = useState('')
+  const [style, setStyle] = useState<JingleStyle | null>(null)
   const [regenLoading, setRegenLoading] = useState(false)
   const [lyricsLoading, setLyricsLoading] = useState(false)
   const [regenError, setRegenError] = useState<string | null>(null)
@@ -71,9 +73,12 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
     return () => clearInterval(interval)
   }, [token, asset, fetchAssetDirect])
 
-  function jingleStyle(): string {
-    return (asset?.metadata as Record<string, unknown> | null)?.style as string ?? 'Sertanejo Universitário'
+  function styleFromAsset(a: Asset): JingleStyle {
+    const raw = (a.metadata as Record<string, unknown> | null)?.style
+    return JINGLE_STYLES.some(s => s.value === raw) ? raw as JingleStyle : 'Sertanejo Universitário'
   }
+
+  const selectedStyle = style ?? (asset ? styleFromAsset(asset) : 'Sertanejo Universitário')
 
   async function handleRegen() {
     if (!token || !asset) return
@@ -85,7 +90,7 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
       const res = await fetch(`/api/v1/jingle/music`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ candidate_id: asset.candidate_id, asset_id: assetId, style: jingleStyle(), lyrics }),
+        body: JSON.stringify({ candidate_id: asset.candidate_id, asset_id: assetId, style: selectedStyle, lyrics }),
       })
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
@@ -109,8 +114,8 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           candidate_id: asset.candidate_id,
-          style: jingleStyle(),
-          extra: 'Reescreva uma letra nova e melhor: refrão mais forte, mais fácil de cantar, mesmo nome e número.',
+          style: selectedStyle,
+          extra: `Reescreva no ritmo de ${selectedStyle}: letra nova, refrão mais forte, mais fácil de cantar, mesmo nome e número.`,
           current_lyrics: current,
         }),
       })
@@ -198,6 +203,31 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
             {isJingle ? (
               <div className="p-8 space-y-4">
                 <h2 className="font-bold text-gray-900">🎵 Seu jingle está pronto</h2>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ritmo musical</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {JINGLE_STYLES.map(s => (
+                      <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => setStyle(s.value)}
+                        disabled={regenLoading || lyricsLoading}
+                        className={`flex items-start gap-2 p-3 rounded-xl text-left border-2 transition-all disabled:opacity-50 ${
+                          selectedStyle === s.value ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white hover:border-blue-300'
+                        }`}
+                      >
+                        <span className="text-xl shrink-0">{s.emoji}</span>
+                        <div>
+                          <p className={`text-sm font-bold ${selectedStyle === s.value ? 'text-blue-700' : 'text-gray-900'}`}>{s.value}</p>
+                          <p className="text-xs text-gray-500">{s.desc}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Troque o ritmo e regenere o áudio. Se quiser, peça também uma letra nova no estilo escolhido.
+                  </p>
+                </div>
                 {asset.lyrics && (
                   <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                     <div className="flex items-center justify-between gap-2">

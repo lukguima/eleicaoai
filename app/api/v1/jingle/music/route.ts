@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
     if (!candidate) {
       return NextResponse.json<ApiResponse>({ success: false, error: 'Candidatura não encontrada.' }, { status: 404 })
     }
+    await supabase.from('candidates').update({ jingle_style: style }).eq('id', candidate.id)
 
     let assetId: string
     let entitlementId: string
