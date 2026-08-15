@@ -7,6 +7,7 @@ import { createBrowserClient } from '@/lib/supabase'
 import { SantinhoTemplate } from '@/components/templates/SantinhoTemplate'
 import { OFFICES, UFS, JINGLE_STYLES, VISUAL_STYLES, palettesForParty } from '@/lib/office'
 import { applyPartyToForm, lookupParty } from '@/lib/parties'
+import { validateCpf } from '@/lib/cpf'
 import { PartySelect } from '@/components/PartySelect'
 import type { Candidate, Design, JingleStyle, Office, VisualStyle } from '@/types'
 import '@fontsource/inter/800.css'
@@ -139,7 +140,16 @@ export default function OnboardingPage() {
   }
 
   async function handleFinish() {
-    setLoading(true); setError(null)
+    setError(null)
+    if (!validateCpf(form.cpf)) {
+      setError('Esse CPF não confere. Confira os 11 dígitos.')
+      return
+    }
+    if (form.campaign_cnpj.replace(/\D/g, '').length !== 14) {
+      setError('Informe o CNPJ da campanha com 14 dígitos.')
+      return
+    }
+    setLoading(true)
     try {
       const { data: { session } } = await createBrowserClient().auth.getSession()
       if (!session) throw new Error('Sessão expirada. Faça login novamente.')
@@ -148,9 +158,15 @@ export default function OnboardingPage() {
       const res = await fetch('/api/v1/candidates', {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...auth }, body: JSON.stringify(form),
       })
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error)
-      const candidateId = json.data.id
+      const raw = await res.text()
+      let json: { success?: boolean; error?: string; data?: { id: string } }
+      try {
+        json = JSON.parse(raw)
+      } catch {
+        throw new Error('Não foi possível salvar. Tente de novo.')
+      }
+      if (!json.success) throw new Error(json.error || 'Não foi possível salvar.')
+      const candidateId = json.data!.id
 
       if (photoFile) {
         const fd = new FormData()
@@ -189,7 +205,6 @@ export default function OnboardingPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-6 py-8 space-y-6">
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
 
         {step === 1 && (
           <div className="space-y-5">
@@ -394,7 +409,10 @@ export default function OnboardingPage() {
             <div className="bg-white rounded-2xl border border-gray-200 p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>CPF *</label>
-                <input required value={form.cpf} onChange={e => setForm(p => ({ ...p, cpf: formatCpf(e.target.value) }))} placeholder="000.000.000-00" className={inputCls} />
+                <input required value={form.cpf} onChange={e => { setError(null); setForm(p => ({ ...p, cpf: formatCpf(e.target.value) })) }} placeholder="000.000.000-00" inputMode="numeric" className={inputCls} />
+                {form.cpf.replace(/\D/g, '').length === 11 && !validateCpf(form.cpf) && (
+                  <p className="text-[11px] text-red-600 mt-1">CPF inválido — os dígitos verificadores não conferem.</p>
+                )}
               </div>
               <div>
                 <label className={labelCls}>CNPJ da campanha *</label>
@@ -409,7 +427,9 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        <div className="flex gap-3">
+        <div className="sticky bottom-0 z-10 -mx-6 px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gray-50/95 backdrop-blur border-t border-gray-200 space-y-3">
+          {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
+          <div className="flex gap-3">
           {step > 1 && (
             <button type="button" onClick={() => setStep(s => (s - 1) as 1 | 2 | 3)} className="px-4 py-3 border border-gray-300 rounded-xl text-sm font-semibold text-gray-700">
               Voltar
@@ -420,11 +440,12 @@ export default function OnboardingPage() {
               Continuar
             </button>
           ) : (
-            <button type="button" onClick={handleFinish} disabled={loading || form.cpf.replace(/\D/g, '').length !== 11 || form.campaign_cnpj.replace(/\D/g, '').length !== 14}
+            <button type="button" onClick={handleFinish} disabled={loading || !validateCpf(form.cpf) || form.campaign_cnpj.replace(/\D/g, '').length !== 14}
               className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-4 rounded-xl">
               {loading ? 'Salvando…' : 'Ver o pacote e pagar'}
             </button>
           )}
+          </div>
         </div>
         {step === 1 && <Link href="/dashboard" className="block text-center text-xs text-gray-400">Pular por agora</Link>}
       </main>
