@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createBrowserClient } from '@/lib/supabase'
 import { TEMPLATE_COMPONENTS } from '@/components/templates'
-import { getRenderSpec, TEMPLATE_VARIATIONS } from '@/components/templates/registry'
-import type { AssetType, Design } from '@/types'
+import { getRenderSpec, TEMPLATE_VARIATIONS, PHOTO_PLACEMENTS, impliedPhotoPlacement } from '@/components/templates/registry'
+import { applyCandidateToDesign } from '@/lib/design'
+import type { AssetType, Candidate, Design } from '@/types'
 
 // Fontes usadas nos templates — carregadas para o preview bater com o render.
 import '@fontsource/inter/400.css'
@@ -34,6 +35,8 @@ export default function DesignEditor({ assetId, candidateId, assetType, initialD
   const [rendering, setRendering] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [genBg, setGenBg] = useState(false)
+  const [syncCadastro, setSyncCadastro] = useState(true)
+  const [cadastroBusy, setCadastroBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const photoRef = useRef<HTMLInputElement>(null)
 
@@ -131,10 +134,45 @@ export default function DesignEditor({ assetId, candidateId, assetType, initialD
     setDesign(d => ({ ...d, background: { kind: 'solid', value: d.colors.primary } }))
   }
 
+  async function applyFromCadastro() {
+    setCadastroBusy(true); setError(null)
+    try {
+      const t = await token()
+      const res = await fetch('/api/v1/candidates', { headers: { Authorization: `Bearer ${t}` } })
+      const json = await res.json()
+      const candidate = json.success ? json.data?.[0] as Candidate | undefined : undefined
+      if (!candidate) throw new Error('Cadastro não encontrado.')
+      setDesign(d => applyCandidateToDesign(d, candidate))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível puxar o cadastro.')
+    } finally {
+      setCadastroBusy(false)
+    }
+  }
+
+  async function saveToCadastro(t: string) {
+    const body = {
+      name: design.fields.name,
+      election_number: design.fields.number,
+      party: design.fields.party,
+      slogan: design.fields.slogan ?? '',
+      primary_color: design.colors.primary,
+      secondary_color: design.colors.secondary,
+    }
+    const res = await fetch(`/api/v1/candidates/${candidateId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify(body),
+    })
+    const json = await res.json()
+    if (!json.success) throw new Error(json.error)
+  }
+
   async function handleGenerateFinal() {
     setRendering(true); setError(null)
     try {
       const t = await token()
+      if (syncCadastro) await saveToCadastro(t)
       // garante que o último design foi salvo
       await fetch(`/api/v1/designs/${assetId}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
@@ -219,6 +257,19 @@ export default function DesignEditor({ assetId, candidateId, assetType, initialD
               <label className={labelCls}>Slogan</label>
               <input className={inputCls} maxLength={100} value={design.fields.slogan ?? ''} onChange={e => setField('slogan', e.target.value)} />
             </div>
+            <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+              <input type="checkbox" className="mt-0.5" checked={syncCadastro} onChange={e => setSyncCadastro(e.target.checked)} />
+              <span>Atualizar meus dados cadastrados com o nome, número, partido, slogan e cores desta peça.</span>
+            </label>
+            <div className="flex gap-2">
+              <button type="button" onClick={applyFromCadastro} disabled={cadastroBusy}
+                className="flex-1 px-2 py-2 rounded-lg text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                {cadastroBusy ? 'Puxando…' : 'Usar dados do cadastro'}
+              </button>
+              <Link href="/dados" className="px-2 py-2 rounded-lg text-xs font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50 text-center">
+                Editar cadastro
+              </Link>
+            </div>
           </div>
 
           {/* Foto */}
@@ -233,7 +284,38 @@ export default function DesignEditor({ assetId, candidateId, assetType, initialD
             </div>
             <input ref={photoRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhoto} />
             {design.photo && (
-              <div className="mt-3 space-y-2">
+              <div className="mt-3 space-y-3">
+                <div>
+                  <p className="text-[11px] text-gray-500 mb-1.5">Local da foto</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PHOTO_PLACEMENTS[assetType].map(p => {
+                      const implied = impliedPhotoPlacement(assetType, design.template_id)
+                      const active = (design.photo_placement && design.photo_placement !== 'auto')
+                        ? design.photo_placement === p.id
+                        : implied === p.id
+                      return (
+                        <button key={p.id} type="button"
+                          onClick={() => setDesign(d => ({ ...d, photo_placement: p.id }))}
+                          className={`px-2 py-2 rounded-lg text-xs font-semibold border-2 ${active ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                          {p.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[11px] text-gray-500 mb-1.5">Enquadramento do rosto</p>
+                  <div className="grid grid-cols-3 gap-1 w-[72px]">
+                    {([20, 50, 80] as const).flatMap(y => ([20, 50, 80] as const).map(x => {
+                      const on = design.photo!.offset_x === x && design.photo!.offset_y === y
+                      return (
+                        <button key={`${x}-${y}`} type="button" title={`${x}% ${y}%`}
+                          onClick={() => setPhoto({ offset_x: x, offset_y: y })}
+                          className={`h-6 rounded border ${on ? 'border-blue-600 bg-blue-600' : 'border-gray-300 bg-gray-100 hover:border-blue-400'}`} />
+                      )
+                    }))}
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-400 w-16">Horizontal</span>
                   <input type="range" min={0} max={100} value={design.photo.offset_x} onChange={e => setPhoto({ offset_x: Number(e.target.value) })} className="flex-1" />
@@ -279,16 +361,67 @@ export default function DesignEditor({ assetId, candidateId, assetType, initialD
 
           {/* Rótulo IA */}
           <div>
-            <label className={labelCls}>Aviso de IA (obrigatório · TSE)</label>
+            <label className={labelCls}>Aviso de IA</label>
             <div className="flex gap-2">
-              {(['bottom', 'top'] as const).map(pos => (
-                <button key={pos} type="button" onClick={() => setDesign(d => ({ ...d, label_position: pos }))}
-                  className={`flex-1 px-2 py-2 rounded-lg text-xs font-semibold border-2 ${design.label_position === pos ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
-                  {pos === 'bottom' ? 'Embaixo' : 'Em cima'}
-                </button>
-              ))}
+              <button type="button" onClick={() => setDesign(d => ({ ...d, show_ai_label: true }))}
+                className={`flex-1 px-2 py-2 rounded-lg text-xs font-semibold border-2 ${design.show_ai_label !== false ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                Com aviso
+              </button>
+              <button type="button" onClick={() => setDesign(d => ({ ...d, show_ai_label: false }))}
+                className={`flex-1 px-2 py-2 rounded-lg text-xs font-semibold border-2 ${design.show_ai_label === false ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                Sem aviso
+              </button>
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">O aviso “Conteúdo fabricado com IA” não pode ser removido.</p>
+          </div>
+
+          {/* CNPJ */}
+          <div>
+            <label className={labelCls}>CNPJ na peça</label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setDesign(d => ({ ...d, show_cnpj: true }))}
+                className={`flex-1 px-2 py-2 rounded-lg text-xs font-semibold border-2 ${design.show_cnpj !== false ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                Com CNPJ
+              </button>
+              <button type="button" onClick={() => setDesign(d => ({ ...d, show_cnpj: false }))}
+                className={`flex-1 px-2 py-2 rounded-lg text-xs font-semibold border-2 ${design.show_cnpj === false ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                Sem CNPJ
+              </button>
+            </div>
+            {(design.show_ai_label !== false || design.show_cnpj !== false) && (
+              <div className="flex gap-2 mt-2">
+                {(['bottom', 'top'] as const).map(pos => (
+                  <button key={pos} type="button" onClick={() => setDesign(d => ({ ...d, label_position: pos }))}
+                    className={`flex-1 px-2 py-2 rounded-lg text-xs font-semibold border-2 ${design.label_position === pos ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                    {pos === 'bottom' ? 'Embaixo' : 'Em cima'}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] text-gray-400 mt-1">
+              {design.show_cnpj === false
+                ? 'Peça sem o CNPJ no rodapé. A lei eleitoral pede CNPJ/CPF e tiragem no material impresso.'
+                : 'O CNPJ cadastrado aparece no rodapé da arte.'}
+            </p>
+          </div>
+
+          {/* Logo do partido */}
+          <div>
+            <label className={labelCls}>Logo do partido</label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setDesign(d => ({ ...d, show_party_logo: true }))}
+                className={`flex-1 px-2 py-2 rounded-lg text-xs font-semibold border-2 ${design.show_party_logo !== false ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                Com logo
+              </button>
+              <button type="button" onClick={() => setDesign(d => ({ ...d, show_party_logo: false }))}
+                className={`flex-1 px-2 py-2 rounded-lg text-xs font-semibold border-2 ${design.show_party_logo === false ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                Sem logo
+              </button>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">
+              {design.party_logo_url
+                ? 'Usa a logo enviada em Meus dados. Sem logo, a sigla entra num selo.'
+                : 'Selo com a sigla do partido. Envie a logo oficial em Meus dados.'}
+            </p>
           </div>
         </div>
 

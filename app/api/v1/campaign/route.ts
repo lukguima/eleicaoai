@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { isSyntheticQuietPeriod } from '@/lib/quiet-period'
+import { captureError, requestIdFrom } from '@/lib/log'
 import type { ApiResponse } from '@/types'
 
 // ── GET /api/v1/campaign ──────────────────────────────────────
@@ -22,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     const { data: candidate } = await supabase
       .from('candidates')
-      .select('id, name, election_number, party, base_photo_url')
+      .select('id, name, election_number, party, campaign_cnpj, slogan, biography_summary, base_photo_url, primary_color, secondary_color, office, uf, visual_style, jingle_style, public_slug, whatsapp, week_plan, jingle_lyrics_draft, party_logo_url, show_party_logo')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -37,17 +39,22 @@ export async function GET(req: NextRequest) {
         .select('id, asset_type, status, asset_id, music_regens_left')
         .eq('candidate_id', candidate.id),
       supabase.from('assets')
-        .select('id, asset_type, status, output_url, created_at')
+        .select('id, asset_type, status, output_url, preview_url, lyrics, created_at')
         .eq('candidate_id', candidate.id)
         .order('created_at', { ascending: false }),
     ])
 
     return NextResponse.json<ApiResponse>({
       success: true,
-      data: { candidate, entitlements: entitlements ?? [], assets: assets ?? [] },
+      data: {
+        candidate,
+        entitlements: entitlements ?? [],
+        assets: assets ?? [],
+        quiet_period: isSyntheticQuietPeriod(),
+      },
     })
   } catch (err) {
-    console.error('[campaign] error:', err)
+    captureError(err, { request_id: requestIdFrom(req) }, 'campaign: erro ao montar painel')
     return NextResponse.json<ApiResponse>({ success: false, error: 'Erro interno.' }, { status: 500 })
   }
 }

@@ -8,9 +8,15 @@ import type { AssetType } from '@/types'
 // Um pedido pago gera entitlements; a geração os consome.
 // ============================================================
 
-/** Os 5 tipos de peça incluídos no Pacote Campanha Completa. */
+/** Peças incluídas no Pacote Campanha Completa. */
 export const PACKAGE_ASSET_TYPES: AssetType[] = [
   'santinho', 'banner', 'perfurado', 'social', 'jingle',
+  'stories', 'colinha', 'adesivo', 'capa', 'status',
+]
+
+export const VISUAL_ASSET_TYPES: Exclude<AssetType, 'jingle'>[] = [
+  'santinho', 'banner', 'perfurado', 'social',
+  'stories', 'colinha', 'adesivo', 'capa', 'status',
 ]
 
 /** Sentinela retornada quando a cobrança está desativada (dev/staging). */
@@ -75,7 +81,12 @@ export async function consumeEntitlement(entitlementId: string, assetId: string)
  * Retorna true se havia cota disponível.
  */
 export async function consumeMusicRegen(entitlementId: string): Promise<boolean> {
-  if (isBypass()) return true
+  // Teste: sem cota. Produção: cobra a cota, exceto STAGE_BYPASS_PAYMENT.
+  if (
+    isBypass()
+    || entitlementId === BYPASS_ENTITLEMENT
+    || process.env.NODE_ENV !== 'production'
+  ) return true
   const supabase = createServerClient()
   const { data, error } = await supabase.rpc('consume_music_regen', {
     p_entitlement_id: entitlementId,

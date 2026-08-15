@@ -32,7 +32,7 @@ existir **no build**:
 ### Runtime (secretas — só no servidor)
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CPF_ENCRYPTION_KEY`
-- `OPENAI_API_KEY`
+- `DEEPSEEK_API_KEY`
 - `SUNO_API_KEY`
 - `SUNO_WEBHOOK_SECRET`
 - `FAL_KEY`

@@ -2,9 +2,24 @@
 // EleiçãoAI — Tipos centrais
 // ============================================================
 
-export type AssetType = 'santinho' | 'banner' | 'perfurado' | 'social' | 'jingle'
+export type AssetType =
+  | 'santinho' | 'banner' | 'perfurado' | 'social' | 'jingle'
+  | 'stories' | 'colinha' | 'adesivo' | 'capa' | 'status'
+export type VisualType = Exclude<AssetType, 'jingle'>
 export type AssetStatus = 'pending' | 'processing' | 'done' | 'failed'
 export type SubscriptionPlan = 'starter' | 'pro' | 'completo'
+export type VisualStyle = 'classico' | 'moderno' | 'popular'
+export type Office =
+  | 'deputado_estadual' | 'deputado_federal' | 'deputado_distrital'
+  | 'senador' | 'governador' | 'presidente'
+
+export interface WeekPost {
+  day: number
+  theme: string
+  format: 'feed' | 'stories'
+  caption: string
+  reel_script: string
+}
 
 export interface Candidate {
   id: string
@@ -20,6 +35,16 @@ export interface Candidate {
   base_photo_cutout_url?: string
   primary_color: string
   secondary_color: string
+  office?: Office
+  uf?: string
+  visual_style?: VisualStyle
+  jingle_style?: JingleStyle
+  public_slug?: string
+  whatsapp?: string
+  party_logo_url?: string
+  show_party_logo?: boolean
+  week_plan?: WeekPost[]
+  jingle_lyrics_draft?: string
   created_at: string
   updated_at: string
 }
@@ -35,6 +60,11 @@ export interface CandidateFormData {
   primary_color?: string
   secondary_color?: string
   jingle_style?: JingleStyle
+  office?: Office
+  uf?: string
+  visual_style?: VisualStyle
+  whatsapp?: string
+  show_party_logo?: boolean
 }
 
 export type JingleStyle =
@@ -135,6 +165,15 @@ export interface Design {
     value: string
   }
   label_position: 'bottom' | 'top'
+  /** false = peça sem o texto de IA. Default true. */
+  show_ai_label?: boolean
+  /** false = peça sem CNPJ no rodapé. Default true. */
+  show_cnpj?: boolean
+  /** Onde a foto entra no layout. auto = segue o modelo (clássico/moderno/popular). */
+  photo_placement?: 'auto' | 'top' | 'left' | 'right' | 'background'
+  /** false = peça sem a marca/logo do partido. Default true. */
+  show_party_logo?: boolean
+  party_logo_url?: string
 }
 
 export interface ComplianceLog {

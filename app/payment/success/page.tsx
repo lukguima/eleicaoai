@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createBrowserClient } from '@/lib/supabase'
 import Link from 'next/link'
 
-type Stage = 'loading' | 'waiting' | 'ready' | 'error'
+type Stage = 'loading' | 'waiting' | 'generating' | 'ready' | 'error'
 
 const MAX_ATTEMPTS = 100 // ~5 minutos a 3s por tentativa
 
@@ -51,8 +51,15 @@ function SuccessContent() {
       const { status } = json.data as { status: string }
 
       if (status === 'paid') {
+        setStage('generating')
+        try {
+          await fetch('/api/v1/kit/generate', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          })
+        } catch { /* painel permite tentar de novo */ }
         setStage('ready')
-        router.replace(`/dashboard`)
+        router.replace('/dashboard')
         return
       }
 
@@ -127,7 +134,7 @@ function SuccessContent() {
         </div>
 
         <h1 className="text-2xl font-bold text-on-surface mb-2">
-          {stage === 'ready' ? 'Pronto!' : 'Pagamento aprovado!'}
+          {stage === 'ready' ? 'Pronto!' : stage === 'generating' ? 'Montando seu kit' : 'Pagamento aprovado!'}
         </h1>
 
         <p className="text-on-surface-variant mb-8 text-sm leading-relaxed">
@@ -135,6 +142,8 @@ function SuccessContent() {
             ? 'Verificando seu pagamento...'
             : stage === 'ready'
             ? 'Tudo liberado! Redirecionando para o seu painel...'
+            : stage === 'generating'
+            ? 'Pagamento ok. Estamos montando seu kit agora...'
             : 'Confirmando o pagamento junto ao Mercado Pago...'}
         </p>
 

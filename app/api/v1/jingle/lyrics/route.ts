@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { generateLyrics } from '@/lib/lyrics'
 import { rateLimit } from '@/lib/rate-limit'
 import { captureError, requestIdFrom } from '@/lib/log'
+import { quietPeriodResponse } from '@/lib/quiet-period'
 import type { ApiResponse, Candidate, JingleStyle } from '@/types'
 
 export const runtime = 'nodejs'
@@ -29,12 +30,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json<ApiResponse>({ success: false, error: 'Credenciais inválidas.' }, { status: 401 })
     }
 
-    const rl = rateLimit(`lyrics:${user.id}`, { limit: 20, windowMs: 60 * 60 * 1000 })
-    if (!rl.allowed) {
-      return NextResponse.json<ApiResponse>({ success: false, error: 'Muitas gerações de letra. Aguarde alguns minutos.' }, { status: 429 })
+    if (process.env.NODE_ENV === 'production') {
+      const rl = rateLimit(`lyrics:${user.id}`, { limit: 20, windowMs: 60 * 60 * 1000 })
+      if (!rl.allowed) {
+        return NextResponse.json<ApiResponse>({ success: false, error: 'Muitas gerações de letra. Aguarde alguns minutos.' }, { status: 429 })
+      }
     }
 
-    const { candidate_id, style, extra } = await req.json()
+    const blocked = quietPeriodResponse()
+    if (blocked) return blocked
+
+    const { candidate_id, style, extra, current_lyrics } = await req.json()
     if (!STYLES.includes(style)) {
       return NextResponse.json<ApiResponse>({ success: false, error: 'Estilo musical inválido.' }, { status: 400 })
     }
@@ -49,10 +55,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json<ApiResponse>({ success: false, error: 'Candidatura não encontrada.' }, { status: 404 })
     }
 
-    const lyrics = await generateLyrics(candidate as Candidate, style as JingleStyle, typeof extra === 'string' ? extra : undefined)
+    const lyrics = await generateLyrics(
+      candidate as Candidate,
+      style as JingleStyle,
+      typeof extra === 'string' ? extra : undefined,
+      typeof current_lyrics === 'string' ? current_lyrics : undefined,
+    )
+    await supabase.from('candidates').update({ jingle_lyrics_draft: lyrics, jingle_style: style }).eq('id', candidate.id)
     return NextResponse.json<ApiResponse>({ success: true, data: { lyrics } })
   } catch (err) {
     captureError(err, { request_id }, 'jingle/lyrics: erro ao gerar letra')
-    return NextResponse.json<ApiResponse>({ success: false, error: 'Não foi possível gerar a letra. Tente novamente.' }, { status: 500 })
+    const message = err instanceof Error ? err.message : 'Não foi possível gerar a letra. Tente novamente.'
+    const status = /DEEPSEEK_API_KEY|chave da DeepSeek/i.test(message) ? 503 : 500
+    return NextResponse.json<ApiResponse>({ success: false, error: message }, { status })
   }
 }

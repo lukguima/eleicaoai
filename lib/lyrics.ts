@@ -1,18 +1,11 @@
 import type { Candidate, JingleStyle } from '@/types'
+import { chatCompletion } from '@/lib/llm'
 
 // ============================================================
-// Geração de LETRA do jingle via LLM (OpenAI chat).
+// Geração de LETRA do jingle via DeepSeek.
 // Síncrono e barato — o usuário revisa/edita antes de gastar a música.
 // A letra sai estruturada (verso/refrão) com nome, número e slogan corretos.
 // ============================================================
-
-const API = 'https://api.openai.com/v1/chat/completions'
-
-function apiKey(): string {
-  const k = process.env.OPENAI_API_KEY
-  if (!k) throw new Error('OPENAI_API_KEY não configurada')
-  return k
-}
 
 /** Remove quebras/instruções que poderiam ser usadas para prompt injection. */
 function clean(v: string, max = 160): string {
@@ -24,11 +17,6 @@ function clean(v: string, max = 160): string {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, max)
-}
-
-interface ChatResponse {
-  choices?: { message?: { content?: string } }[]
-  error?: { message?: string }
 }
 
 const STYLE_HINT: Record<JingleStyle, string> = {
@@ -48,6 +36,7 @@ export async function generateLyrics(
   candidate: Candidate,
   style: JingleStyle,
   extra?: string,
+  currentLyrics?: string,
 ): Promise<string> {
   const name = clean(candidate.name, 80)
   const number = clean(candidate.election_number, 6)
@@ -62,6 +51,7 @@ export async function generateLyrics(
     'Regras obrigatórias: tom positivo; NUNCA cite adversários, outros candidatos ou partidos rivais;',
     'nada ofensivo; foque em esperança, trabalho e propostas. Responda em português do Brasil.',
     'Estruture com marcações [Introdução], [Verso], [Refrão], [Verso], [Refrão].',
+    'Não escreva aviso de IA, disclaimer legal nem a frase "conteúdo fabricado".',
     'Não escreva nada além da letra (sem explicações).',
   ].join(' ')
 
@@ -73,29 +63,17 @@ export async function generateLyrics(
     bio ? `Trajetória: ${bio}.` : '',
     `Estilo musical: ${style} — ${STYLE_HINT[style]}.`,
     userExtra ? `Pedido extra do candidato: ${userExtra}.` : '',
+    currentLyrics
+      ? `A letra atual (só como referência do que melhorar — escreva uma versão NOVA, mais grudenta, sem copiar verso a verso):\n${clean(currentLyrics, 700)}`
+      : '',
     'Gere a letra completa do jingle (30 a 60 segundos de música).',
   ].filter(Boolean).join('\n')
 
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      temperature: 0.9,
-      max_tokens: 500,
-    }),
-    signal: AbortSignal.timeout(45_000),
-  })
-
-  const json = (await res.json()) as ChatResponse
-  if (!res.ok || json.error) {
-    throw new Error(`Erro ao gerar letra: ${json.error?.message ?? res.status}`)
-  }
-  const text = json.choices?.[0]?.message?.content?.trim()
-  if (!text) throw new Error('O gerador de letra não retornou conteúdo.')
-  return text
+  return chatCompletion(
+    [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    { temperature: 0.9, max_tokens: 500, timeoutMs: 45_000 },
+  )
 }

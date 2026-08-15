@@ -25,6 +25,7 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
   const [editingLyrics, setEditingLyrics] = useState(false)
   const [editedLyrics, setEditedLyrics] = useState('')
   const [regenLoading, setRegenLoading] = useState(false)
+  const [lyricsLoading, setLyricsLoading] = useState(false)
   const [regenError, setRegenError] = useState<string | null>(null)
 
   // Obtém token da sessão
@@ -70,26 +71,57 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
     return () => clearInterval(interval)
   }, [token, asset, fetchAssetDirect])
 
+  function jingleStyle(): string {
+    return (asset?.metadata as Record<string, unknown> | null)?.style as string ?? 'Sertanejo Universitário'
+  }
+
   async function handleRegen() {
-    if (!token || !editedLyrics.trim() || !asset) return
+    if (!token || !asset) return
+    const lyrics = (editingLyrics ? editedLyrics : asset.lyrics ?? '').trim()
+    if (lyrics.length < 10) return
     setRegenLoading(true)
     setRegenError(null)
     try {
-      const style = (asset.metadata as Record<string, unknown>)?.style as string ?? 'Sertanejo Universitário'
       const res = await fetch(`/api/v1/jingle/music`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ candidate_id: asset.candidate_id, asset_id: assetId, style, lyrics: editedLyrics }),
+        body: JSON.stringify({ candidate_id: asset.candidate_id, asset_id: assetId, style: jingleStyle(), lyrics }),
       })
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
       setEditingLyrics(false)
-      // Recarrega o asset para mostrar processing
       setAsset(prev => prev ? { ...prev, status: 'processing', output_url: undefined, media_url: null } : prev)
     } catch (err) {
       setRegenError(err instanceof Error ? err.message : 'Erro ao regenerar.')
     } finally {
       setRegenLoading(false)
+    }
+  }
+
+  async function handleNewLyrics() {
+    if (!token || !asset) return
+    setLyricsLoading(true)
+    setRegenError(null)
+    try {
+      const current = (editingLyrics ? editedLyrics : asset.lyrics ?? '').trim()
+      const res = await fetch('/api/v1/jingle/lyrics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          candidate_id: asset.candidate_id,
+          style: jingleStyle(),
+          extra: 'Reescreva uma letra nova e melhor: refrão mais forte, mais fácil de cantar, mesmo nome e número.',
+          current_lyrics: current,
+        }),
+      })
+      const json = await res.json()
+      if (!json.success) throw new Error(json.error)
+      setEditedLyrics(json.data.lyrics)
+      setEditingLyrics(true)
+    } catch (err) {
+      setRegenError(err instanceof Error ? err.message : 'Erro ao criar nova letra.')
+    } finally {
+      setLyricsLoading(false)
     }
   }
 
@@ -168,16 +200,27 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
                 <h2 className="font-bold text-gray-900">🎵 Seu jingle está pronto</h2>
                 {asset.lyrics && (
                   <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Letra gerada</p>
-                      {!editingLyrics && (
+                      <div className="flex items-center gap-3">
                         <button
-                          onClick={() => { setEditedLyrics(asset.lyrics ?? ''); setEditingLyrics(true); setRegenError(null) }}
-                          className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
+                          type="button"
+                          onClick={handleNewLyrics}
+                          disabled={lyricsLoading || regenLoading}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline disabled:opacity-50"
                         >
-                          ✏️ Editar letra
+                          {lyricsLoading ? 'Criando letra…' : '✨ Nova letra com IA'}
                         </button>
-                      )}
+                        {!editingLyrics && (
+                          <button
+                            type="button"
+                            onClick={() => { setEditedLyrics(asset.lyrics ?? ''); setEditingLyrics(true); setRegenError(null) }}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-semibold underline"
+                          >
+                            ✏️ Editar letra
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {editingLyrics ? (
@@ -191,15 +234,25 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
                         {regenError && (
                           <p className="text-xs text-red-600">{regenError}</p>
                         )}
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <button
+                            type="button"
+                            onClick={handleNewLyrics}
+                            disabled={lyricsLoading || regenLoading}
+                            className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            {lyricsLoading ? 'Criando…' : '✨ Pedir outra letra à IA'}
+                          </button>
+                          <button
+                            type="button"
                             onClick={handleRegen}
-                            disabled={regenLoading || editedLyrics.trim().length < 10}
+                            disabled={regenLoading || lyricsLoading || editedLyrics.trim().length < 10}
                             className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-2.5 rounded-lg text-sm transition-colors"
                           >
                             {regenLoading ? 'Gerando...' : '🎵 Regenerar áudio com esta letra'}
                           </button>
                           <button
+                            type="button"
                             onClick={() => { setEditingLyrics(false); setRegenError(null) }}
                             className="px-4 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition-colors"
                           >
@@ -208,7 +261,20 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
                         </div>
                       </div>
                     ) : (
-                      <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{asset.lyrics}</pre>
+                      <div className="space-y-3">
+                        <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">{asset.lyrics}</pre>
+                        {regenError && (
+                          <p className="text-xs text-red-600">{regenError}</p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleRegen}
+                          disabled={regenLoading || lyricsLoading || !(asset.lyrics ?? '').trim()}
+                          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-2.5 rounded-lg text-sm transition-colors"
+                        >
+                          {regenLoading ? 'Gerando...' : '🎵 Regenerar áudio com esta letra'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -219,9 +285,15 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
                 ) : (
                   <p className="text-sm text-gray-400">Preparando o áudio…</p>
                 )}
-                <p className="text-xs text-gray-400">
-                  🔊 O áudio abre com o aviso “Este conteúdo foi fabricado utilizando inteligência artificial”, obrigatório pela Res. TSE nº 23.732/2024.
-                </p>
+                {Boolean((asset.metadata as Record<string, unknown> | null)?.include_ai_intro) ? (
+                  <p className="text-xs text-gray-400">
+                    O áudio começa com o aviso de conteúdo fabricado com IA (EleiçãoAI · Suno).
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-400">
+                    Áudio gerado a partir da letra, sem aviso falado no início.
+                  </p>
+                )}
               </div>
             ) : (
               <div>
@@ -246,7 +318,7 @@ export default function OrderResultPage({ params }: { params: Promise<{ id: stri
                   Download com rótulo TSE incluído
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  "Conteúdo fabricado com IA" + CNPJ da campanha — obrigatório pela Res. 23.732/2024
+                  Conteúdo fabricado com IA (EleiçãoAI · template) + CNPJ da campanha — obrigatório pela Res. 23.755/2026
                 </p>
               </div>
               <a

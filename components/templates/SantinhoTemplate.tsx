@@ -1,5 +1,5 @@
 import type { Design } from '@/types'
-import { PhotoSlot, ComplianceFooter } from './parts'
+import { PhotoSlot, ComplianceFooter, PhotoRow, FrameWithPartyMark } from './parts'
 
 // SantinhoTemplate — usado IDÊNTICO no preview (browser) e no render final
 // (satori/servidor). Só usa CSS que o satori entende (flexbox, absolute).
@@ -9,10 +9,33 @@ interface Props {
 }
 
 export function SantinhoTemplate({ design }: Props) {
-  const { template_id } = design
-  if (template_id === 'moderno') return <Moderno design={design} />
-  if (template_id === 'popular') return <Popular design={design} />
-  return <Classico design={design} />
+  const place = design.photo_placement
+  let inner = <Classico design={design} />
+  if (place === 'background') inner = <Popular design={design} />
+  else if (place === 'top') inner = <Classico design={design} />
+  else if (place === 'left' || place === 'right') inner = <Split design={design} side={place} />
+  else if (design.template_id === 'moderno') inner = <Moderno design={design} />
+  else if (design.template_id === 'popular') inner = <Popular design={design} />
+  return <FrameWithPartyMark design={design} size={48}>{inner}</FrameWithPartyMark>
+}
+
+function Split({ design, side }: { design: Design; side: 'left' | 'right' }) {
+  const { fields, colors, label_position } = design
+  const footerTop = label_position === 'top'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', background: colors.primary }}>
+      {footerTop && <ComplianceFooter design={design} />}
+      <PhotoRow design={design} side={side} photoWidth="48%">
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '16px 14px', height: '100%' }}>
+          <div style={{ display: 'flex', fontFamily: 'Inter', fontWeight: 800, fontSize: 13, letterSpacing: 2, color: colors.secondary }}>VOTE</div>
+          <div style={{ display: 'flex', fontFamily: 'Anton', fontSize: 72, lineHeight: 0.9, color: colors.secondary }}>{fields.number || '00'}</div>
+          <div style={{ display: 'flex', fontFamily: 'Inter', fontWeight: 800, fontSize: 20, color: 'white', textTransform: 'uppercase', lineHeight: 1.05, marginTop: 8 }}>{fields.name || 'Seu Nome'}</div>
+          <div style={{ display: 'flex', fontFamily: 'Inter', fontSize: 12, color: 'white', opacity: 0.8, marginTop: 4 }}>{fields.party}</div>
+        </div>
+      </PhotoRow>
+      {!footerTop && <ComplianceFooter design={design} />}
+    </div>
+  )
 }
 
 // ── Clássico: foto no topo; faixa de cor com número gigante embaixo ──

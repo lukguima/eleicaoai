@@ -35,11 +35,15 @@ async function sunoPost<T>(path: string, body: unknown): Promise<T> {
 
 // ── Geração de Música ─────────────────────────────────────────
 // A letra vem pronta (gerada por LLM e aprovada/editada pelo usuário).
-// O aviso legal de IA é embutido no início do conteúdo cantado.
+// O aviso falado de IA no início é opcional (includeAiIntro).
 
-export function buildMusicPrompt(lyrics: string): string {
-  const full = `${AUDIO_COMPLIANCE_INTRO} ${lyrics}`
-  return full.slice(0, 5000) // limite de modelos V5+
+export function buildMusicPrompt(lyrics: string, includeAiIntro = false): string {
+  let body = lyrics.trim()
+  if (body.startsWith(AUDIO_COMPLIANCE_INTRO)) {
+    body = body.slice(AUDIO_COMPLIANCE_INTRO.length).trim()
+  }
+  const full = includeAiIntro ? `${AUDIO_COMPLIANCE_INTRO} ${body}` : body
+  return full.slice(0, 5000)
 }
 
 /**
@@ -51,6 +55,7 @@ export async function generateJingle(
   lyrics: string,
   style: JingleStyle,
   assetId: string,
+  includeAiIntro = false,
 ): Promise<string> {
   const title = `${candidate.name} ${candidate.election_number} - ${candidate.party}`
   const secret = process.env.SUNO_WEBHOOK_SECRET ?? ''
@@ -60,7 +65,7 @@ export async function generateJingle(
     instrumental: false,
     model: 'V5_5',
     callBackUrl: `${getCallbackBase()}/api/webhooks/suno?asset_id=${assetId}&type=music&s=${encodeURIComponent(secret)}`,
-    prompt: buildMusicPrompt(lyrics),
+    prompt: buildMusicPrompt(lyrics, includeAiIntro),
     style,
     title: title.slice(0, 100),
     negativeTags: 'propaganda negativa, difamação, agressivo',

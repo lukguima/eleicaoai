@@ -1,43 +1,48 @@
 import sharp from 'sharp'
 import type { AssetType } from '@/types'
+import { IMAGE_WATERMARK_TEXT } from './compliance-text'
 
-// TSE Resolução 23.732/2024 Art. 9º-B §2 II:
-// Logos e vinhetas são isentos da marca d'água de IA.
-// Todos os demais tipos de imagem gerada por IA devem ter o rótulo.
-const EXEMPT_TYPES = new Set<AssetType>(['jingle']) // capa do jingle é tratada internamente
+// TSE Res. 23.610/2019 art. 9º-B (redação 23.755/2026): rótulo em conteúdo sintético.
+const EXEMPT_TYPES = new Set<AssetType>(['jingle'])
 
-const WATERMARK_TEXT = 'Conteúdo fabricado com IA'
+const WATERMARK_TEXT = IMAGE_WATERMARK_TEXT
 const FOOTER_HEIGHT = 48
-const FONT_SIZE = 14
+const FONT_SIZE = 13
 
-// Dimensões esperadas por tipo (px @ 96 dpi — base para cálculo do footer)
 const ASSET_DIMENSIONS: Record<AssetType, { w: number; h: number }> = {
   santinho:  { w: 900,  h: 1200 },
   banner:    { w: 800,  h: 1200 },
   perfurado: { w: 1200, h: 480  },
   social:    { w: 1080, h: 1080 },
   jingle:    { w: 512,  h: 512  },
+  stories:   { w: 1080, h: 1920 },
+  colinha:   { w: 591,  h: 827  },
+  adesivo:   { w: 2362, h: 886  },
+  capa:      { w: 1200, h: 630  },
+  status:    { w: 1080, h: 1920 },
 }
 
 /**
- * Injeta marca d'água "Conteúdo fabricado com IA" no canto inferior direito
- * e rodapé com CNPJ da campanha — obrigatório pelo Art. 9º-B §1 II TSE 2024.
- *
- * Isenta: tipos em EXEMPT_TYPES (Art. 9º-B §2 II).
+ * Injeta marca d'água de IA e rodapé com CNPJ no download.
+ * Se showAiLabel for false, devolve a imagem como está (o template já tratou o rodapé).
  */
 export async function injectImageWatermark(
   imageBuffer: Buffer,
   assetType: AssetType,
   campaignCnpj: string,
+  showAiLabel = true,
+  showCnpj = true,
 ): Promise<Buffer> {
   if (EXEMPT_TYPES.has(assetType)) return imageBuffer
+  // Sem aviso de IA: a peça já saiu do template; não recoloca o texto no download.
+  if (!showAiLabel) return imageBuffer
 
   const image = sharp(imageBuffer)
   const meta = await image.metadata()
   const width = meta.width ?? ASSET_DIMENSIONS[assetType].w
   const height = meta.height ?? ASSET_DIMENSIONS[assetType].h
 
-  const footerSvg = buildFooterSvg(width, campaignCnpj)
+  const footerSvg = buildFooterSvg(width, campaignCnpj, showCnpj)
   const watermarkSvg = buildCornerWatermarkSvg(width)
 
   const result = await sharp(imageBuffer)
@@ -64,8 +69,10 @@ export async function injectImageWatermark(
 
 // ── SVG helpers ────────────────────────────────────────────────
 
-function buildFooterSvg(width: number, cnpj: string): string {
-  const label = `${WATERMARK_TEXT}  |  CNPJ Campanha: ${cnpj}`
+function buildFooterSvg(width: number, cnpj: string, showCnpj: boolean): string {
+  const parts = [WATERMARK_TEXT]
+  if (showCnpj && cnpj) parts.push(`CNPJ Campanha: ${cnpj}`)
+  const label = parts.join('  |  ')
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${FOOTER_HEIGHT}">
   <rect width="${width}" height="${FOOTER_HEIGHT}" fill="rgba(0,0,0,0.65)" rx="0"/>

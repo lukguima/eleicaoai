@@ -21,10 +21,10 @@ export const metadata: Metadata = {
     template: '%s | EleiçãoAI',
   },
   description:
-    'Gere santinhos, banners, adesivos perfurados, posts para redes sociais e jingles com inteligência artificial. Conformidade automática com a Resolução TSE nº 23.732/2024.',
+    'Gere santinhos, banners, stories, colinha e jingles com inteligência artificial. Conformidade automática com a Resolução TSE nº 23.755/2026.',
   keywords: [
     'material eleitoral', 'santinho eleitoral', 'jingle eleitoral', 'banner eleitoral',
-    'inteligência artificial eleições', 'TSE resolução 23.732', 'campanha política IA',
+    'inteligência artificial eleições', 'TSE resolução 23.755', 'campanha política IA',
   ],
   authors: [{ name: 'EleiçãoAI' }],
   creator: 'EleiçãoAI',
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     siteName: 'EleiçãoAI',
     title: 'EleiçãoAI — Materiais eleitorais com IA',
     description:
-      'Santinhos, banners e jingles gerados com IA em minutos. 100% conforme a Res. TSE 23.732/2024.',
+      'Santinhos, banners e jingles gerados com IA em minutos. 100% conforme a Res. TSE 23.755/2026.',
     images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'EleiçãoAI' }],
   },
   twitter: {
@@ -56,6 +56,7 @@ export default function RootLayout({
     <html
       lang="pt-BR"
       className={`${montserrat.variable} ${inter.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
         <link
@@ -63,7 +64,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>{children}</body>
     </html>
   );
 }

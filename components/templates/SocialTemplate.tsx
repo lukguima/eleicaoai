@@ -1,11 +1,16 @@
 import type { Design } from '@/types'
-import { PhotoSlot, ComplianceFooter } from './parts'
+import { PhotoSlot, ComplianceFooter, PhotoRow, FrameWithPartyMark } from './parts'
 
 // Post quadrado para redes (base 540×540).
 
 export function SocialTemplate({ design }: { design: Design }) {
+  return <FrameWithPartyMark design={design} size={52}><SocialInner design={design} /></FrameWithPartyMark>
+}
+
+function SocialInner({ design }: { design: Design }) {
   const { fields, colors, template_id, label_position } = design
   const footerTop = label_position === 'top'
+  const place = design.photo_placement
 
   const nameBlock = (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -20,23 +25,23 @@ export function SocialTemplate({ design }: { design: Design }) {
     </div>
   )
 
-  if (template_id === 'moderno') {
+  if (place === 'left' || place === 'right' || ((place === 'auto' || !place) && template_id === 'moderno')) {
+    const side = place === 'right' ? 'right' : 'left'
     return (
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', background: colors.primary }}>
         {footerTop && <ComplianceFooter design={design} fontSize={11} />}
-        <div style={{ display: 'flex', flexGrow: 1 }}>
-          <div style={{ display: 'flex', width: '50%' }}><PhotoSlot design={design} placeholderSize={24} /></div>
-          <div style={{ display: 'flex', flexDirection: 'column', width: '50%', padding: 28, justifyContent: 'center' }}>
+        <PhotoRow design={design} side={side} photoWidth="50%" placeholderSize={24}>
+          <div style={{ display: 'flex', flexDirection: 'column', padding: 28, justifyContent: 'center', height: '100%' }}>
             {numberBadge}
             <div style={{ display: 'flex', marginTop: 18 }}>{nameBlock}</div>
           </div>
-        </div>
+        </PhotoRow>
         {!footerTop && <ComplianceFooter design={design} fontSize={11} />}
       </div>
     )
   }
 
-  if (template_id === 'popular') {
+  if (place === 'background' || ((place === 'auto' || !place) && template_id === 'popular')) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', position: 'relative', background: colors.primary }}>
         {footerTop && <ComplianceFooter design={design} fontSize={11} />}
@@ -51,7 +56,7 @@ export function SocialTemplate({ design }: { design: Design }) {
     )
   }
 
-  // classico: foto no topo, faixa embaixo
+  // classico / em cima: foto no topo, faixa embaixo
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', background: colors.primary }}>
       {footerTop && <ComplianceFooter design={design} fontSize={11} />}

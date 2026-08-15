@@ -4,12 +4,19 @@ import { SantinhoTemplate } from './SantinhoTemplate'
 import { BannerTemplate } from './BannerTemplate'
 import { PerfuradoTemplate } from './PerfuradoTemplate'
 import { SocialTemplate } from './SocialTemplate'
+import { StoriesTemplate } from './StoriesTemplate'
+import { ColinhaTemplate } from './ColinhaTemplate'
+import { AdesivoTemplate } from './AdesivoTemplate'
+import { CapaTemplate } from './CapaTemplate'
 
-// Mapa client-safe (sem dependências de servidor) — usado no preview do editor.
-// O servidor usa o mesmo conjunto via lib/render.tsx.
 export const TEMPLATE_COMPONENTS: Record<Exclude<AssetType, 'jingle'>, (props: { design: Design }) => React.ReactElement> = {
   santinho: SantinhoTemplate,
   banner: BannerTemplate,
   perfurado: PerfuradoTemplate,
   social: SocialTemplate,
+  stories: StoriesTemplate,
+  colinha: ColinhaTemplate,
+  adesivo: AdesivoTemplate,
+  capa: CapaTemplate,
+  status: StoriesTemplate,
 }

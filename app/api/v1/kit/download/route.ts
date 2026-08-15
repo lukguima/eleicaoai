@@ -16,6 +16,7 @@ export const maxDuration = 60
 
 const EXT: Record<string, string> = {
   santinho: 'png', banner: 'png', perfurado: 'png', social: 'png', jingle: 'mp3',
+  stories: 'png', colinha: 'png', adesivo: 'png', capa: 'png', status: 'png',
 }
 
 export async function GET(req: NextRequest) {
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   const { data: candidate } = await supabase
     .from('candidates')
-    .select('id')
+    .select('id, week_plan')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -78,6 +79,15 @@ export async function GET(req: NextRequest) {
         if (res.ok) archive.append(Buffer.from(await res.arrayBuffer()), { name: u.name })
       } catch { /* pula arquivo que falhar */ }
     }
+  }
+
+  const week = (candidate as { week_plan?: { day: number; theme: string; caption: string; reel_script: string }[] }).week_plan ?? []
+  const cabo = week.find(p => p.day === 0)
+  const posts = week.filter(p => p.day >= 1)
+  if (cabo?.caption) archive.append(cabo.caption, { name: 'cabo-abordagem.txt' })
+  if (posts.length > 0) {
+    const legendas = posts.map(p => `DIA ${p.day} — ${p.theme}\n${p.caption}\nRoteiro: ${p.reel_script}\n`).join('\n---\n\n')
+    archive.append(legendas, { name: 'legendas-semana.txt' })
   }
 
   await archive.finalize()

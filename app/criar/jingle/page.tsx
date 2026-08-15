@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createBrowserClient } from '@/lib/supabase'
-import type { Candidate, JingleStyle } from '@/types'
+import type { JingleStyle } from '@/types'
 
 const STYLES: { value: JingleStyle; emoji: string; desc: string }[] = [
   { value: 'Sertanejo Universitário', emoji: '🤠', desc: 'Batida moderna, voz emotiva — forte no interior e agro' },
@@ -19,6 +19,10 @@ export default function CriarJinglePage() {
   const router = useRouter()
   const [candidateId, setCandidateId] = useState<string | null>(null)
   const [loadErr, setLoadErr] = useState<string | null>(null)
+  const [name, setName] = useState('')
+  const [number, setNumber] = useState('')
+  const [party, setParty] = useState('')
+  const [syncCadastro, setSyncCadastro] = useState(true)
 
   const [step, setStep] = useState<1 | 2>(1)
   const [style, setStyle] = useState<JingleStyle>('Sertanejo Universitário')
@@ -26,6 +30,7 @@ export default function CriarJinglePage() {
   const [lyrics, setLyrics] = useState('')
   const [genLyrics, setGenLyrics] = useState(false)
   const [genMusic, setGenMusic] = useState(false)
+  const [includeAiIntro, setIncludeAiIntro] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -34,11 +39,19 @@ export default function CriarJinglePage() {
         const supabase = createBrowserClient()
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) { setLoadErr('Faça login para criar o jingle.'); return }
-        const res = await fetch('/api/v1/candidates', { headers: { Authorization: `Bearer ${session.access_token}` } })
+        const res = await fetch('/api/v1/campaign', { headers: { Authorization: `Bearer ${session.access_token}` } })
         const json = await res.json()
-        const c: Candidate | undefined = json.success ? json.data?.[0] : undefined
+        const c = json.success ? json.data?.candidate : undefined
         if (!c) { setLoadErr('Cadastre seus dados antes de criar o jingle.'); return }
         setCandidateId(c.id)
+        setName(c.name || '')
+        setNumber(c.election_number || '')
+        setParty(c.party || '')
+        if (c.jingle_style) setStyle(c.jingle_style as JingleStyle)
+        if (c.jingle_lyrics_draft) {
+          setLyrics(c.jingle_lyrics_draft)
+          setStep(2)
+        }
       } catch {
         setLoadErr('Erro ao carregar seus dados.')
       }
@@ -56,6 +69,15 @@ export default function CriarJinglePage() {
     setGenLyrics(true); setError(null)
     try {
       const t = await token()
+      if (syncCadastro) {
+        const up = await fetch(`/api/v1/candidates/${candidateId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+          body: JSON.stringify({ name, election_number: number, party }),
+        })
+        const upJson = await up.json()
+        if (!upJson.success) throw new Error(upJson.error)
+      }
       const res = await fetch('/api/v1/jingle/lyrics', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
         body: JSON.stringify({ candidate_id: candidateId, style, extra }),
@@ -78,7 +100,7 @@ export default function CriarJinglePage() {
       const t = await token()
       const res = await fetch('/api/v1/jingle/music', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({ candidate_id: candidateId, style, lyrics }),
+        body: JSON.stringify({ candidate_id: candidateId, style, lyrics, include_ai_intro: includeAiIntro }),
       })
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
@@ -128,6 +150,30 @@ export default function CriarJinglePage() {
               <h1 className="text-2xl font-bold text-gray-900">Escolha o estilo musical</h1>
               <p className="text-gray-500 text-sm mt-1">A IA cria a letra e você poderá editá-la antes de gerar a música.</p>
             </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-800">Seus dados nesta criação</p>
+                <Link href="/dados" className="text-xs text-blue-600 underline">Editar cadastro completo</Link>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nome</label>
+                <input value={name} maxLength={150} onChange={e => setName(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Número</label>
+                  <input value={number} maxLength={6} onChange={e => setNumber(e.target.value.replace(/\D/g, ''))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Partido</label>
+                  <input value={party} maxLength={100} onChange={e => setParty(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                </div>
+              </div>
+              <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+                <input type="checkbox" className="mt-0.5" checked={syncCadastro} onChange={e => setSyncCadastro(e.target.checked)} />
+                <span>Atualizar o cadastro com estes dados ao gerar a letra.</span>
+              </label>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {STYLES.map(s => (
                 <button key={s.value} type="button" onClick={() => setStyle(s.value)}
@@ -166,6 +212,20 @@ export default function CriarJinglePage() {
             <textarea value={lyrics} onChange={e => setLyrics(e.target.value)} rows={16}
               className="w-full text-sm text-gray-800 leading-relaxed font-mono border border-gray-300 rounded-xl p-4 resize-y focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white" />
 
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Aviso de IA no áudio</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setIncludeAiIntro(true)}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold border-2 ${includeAiIntro ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                  Com aviso
+                </button>
+                <button type="button" onClick={() => setIncludeAiIntro(false)}
+                  className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold border-2 ${!includeAiIntro ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'}`}>
+                  Sem aviso
+                </button>
+              </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row gap-3">
               <button onClick={handleGenerateLyrics} disabled={genLyrics}
                 className="px-4 py-3 border border-gray-300 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-50 disabled:opacity-50">
@@ -178,7 +238,9 @@ export default function CriarJinglePage() {
             </div>
 
             <p className="text-xs text-gray-400">
-              O áudio final começa com o aviso “Este conteúdo foi fabricado utilizando inteligência artificial”, obrigatório pela Resolução TSE nº 23.732/2024.
+              {includeAiIntro
+                ? 'O áudio começa com o aviso de conteúdo fabricado com IA (EleiçãoAI · Suno). A Resolução TSE nº 23.755/2026 pede esse rótulo em conteúdo sintético. Não usamos clone de voz de terceiros.'
+                : 'A música será gerada só com a letra, sem o aviso falado no início. Não usamos clone de voz de terceiros.'}
             </p>
           </div>
         )}

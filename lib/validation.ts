@@ -12,6 +12,14 @@ export const candidateSchema = z.object({
   biography_summary: z.string().min(20).max(500),
   primary_color:     z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   secondary_color:   z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  office: z.enum([
+    'deputado_estadual', 'deputado_federal', 'deputado_distrital',
+    'senador', 'governador', 'presidente',
+  ]).optional(),
+  uf: z.string().length(2).optional(),
+  visual_style: z.enum(['classico', 'moderno', 'popular']).optional(),
+  whatsapp: z.string().max(20).optional(),
+  show_party_logo: z.boolean().optional(),
   jingle_style: z
     .enum([
       'Sertanejo Universitário',
@@ -25,6 +33,44 @@ export const candidateSchema = z.object({
 })
 
 export type CandidateInput = z.infer<typeof candidateSchema>
+
+export const candidateUpdateSchema = z.object({
+  name:              z.string().min(2).max(150).optional(),
+  election_number:   z.string().min(2).max(6).regex(/^\d+$/, 'Apenas números').optional(),
+  party:             z.string().min(2).max(100).optional(),
+  campaign_cnpj:     z.union([
+    z.string().regex(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/, 'CNPJ inválido'),
+    z.literal(''),
+  ]).optional(),
+  cpf:               z.union([
+    z.string().regex(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/, 'CPF inválido'),
+    z.literal(''),
+  ]).optional(),
+  slogan:            z.string().max(100).optional(),
+  biography_summary: z.string().min(20).max(500).optional(),
+  primary_color:     z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  secondary_color:   z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  office: z.enum([
+    'deputado_estadual', 'deputado_federal', 'deputado_distrital',
+    'senador', 'governador', 'presidente',
+  ]).optional(),
+  uf: z.string().length(2).optional(),
+  visual_style: z.enum(['classico', 'moderno', 'popular']).optional(),
+  whatsapp: z.string().max(20).optional(),
+  show_party_logo: z.boolean().optional(),
+  jingle_style: z
+    .enum([
+      'Sertanejo Universitário',
+      'Forró',
+      'Funk Gospel',
+      'MPB',
+      'Pagode',
+      'Rap Político',
+    ])
+    .optional(),
+})
+
+export type CandidateUpdateInput = z.infer<typeof candidateUpdateSchema>
 
 // ── Jingle ────────────────────────────────────────────────────
 
@@ -47,7 +93,7 @@ export const jingleRequestSchema = z.object({
 
 export const imageRequestSchema = z.object({
   candidate_id: z.string().uuid(),
-  asset_type: z.enum(['santinho', 'banner', 'perfurado', 'social']),
+  asset_type: z.enum(['santinho', 'banner', 'perfurado', 'social', 'stories', 'colinha', 'adesivo', 'capa', 'status']),
 })
 
 // ── Upload de foto ────────────────────────────────────────────

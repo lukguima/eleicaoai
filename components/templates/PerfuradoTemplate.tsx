@@ -1,18 +1,26 @@
 import type { Design } from '@/types'
-import { PhotoSlot, complianceLabel } from './parts'
+import { PhotoSlot, PhotoRow, complianceLabel, FrameWithPartyMark } from './parts'
+import { isAiLabelOn, isCnpjOn } from '@/lib/compliance-text'
 
 // Faixa perfurada horizontal (base 590×236). Leitura à distância.
 
 function Footer({ design }: { design: Design }) {
+  const text = complianceLabel(design.fields.cnpj, isAiLabelOn(design), isCnpjOn(design))
+  if (!text) return null
   return (
     <div style={{ display: 'flex', position: 'absolute', bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center', padding: '3px 10px', background: 'rgba(0,0,0,0.55)', color: 'white', fontFamily: 'Inter', fontSize: 8 }}>
-      {complianceLabel(design.fields.cnpj)}
+      {text}
     </div>
   )
 }
 
 export function PerfuradoTemplate({ design }: { design: Design }) {
+  return <FrameWithPartyMark design={design} size={48}><PerfuradoInner design={design} /></FrameWithPartyMark>
+}
+
+function PerfuradoInner({ design }: { design: Design }) {
   const { fields, colors, template_id } = design
+  const place = design.photo_placement
 
   const numberBlock = (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -29,40 +37,40 @@ export function PerfuradoTemplate({ design }: { design: Design }) {
     </div>
   )
 
-  // popular: fundo sólido, sem foto (alto contraste para plotagem)
-  if (template_id === 'popular') {
+  if (place === 'left' || place === 'right' || ((place === 'auto' || !place) && template_id === 'moderno')) {
+    const side = place === 'left' ? 'left' : 'right'
     return (
-      <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative', background: colors.primary, alignItems: 'center', padding: '0 28px' }}>
-        {numberBlock}
-        {nameBlock}
+      <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative', background: colors.primary }}>
+        <PhotoRow design={design} side={side} photoWidth={200} placeholderSize={18}>
+          <div style={{ display: 'flex', alignItems: 'center', height: '100%', paddingLeft: 24 }}>
+            {numberBlock}
+            {nameBlock}
+          </div>
+        </PhotoRow>
         <Footer design={design} />
       </div>
     )
   }
 
-  // moderno: foto recortada à direita
-  if (template_id === 'moderno') {
+  if (place === 'background' || ((place === 'auto' || !place) && template_id === 'classico')) {
     return (
-      <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative', background: colors.primary, alignItems: 'center' }}>
-        <div style={{ display: 'flex', paddingLeft: 24 }}>{numberBlock}</div>
-        {nameBlock}
-        <div style={{ display: 'flex', width: 200, height: '100%' }}>
+      <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative' }}>
+        <div style={{ display: 'flex', position: 'absolute', inset: 0 }}>
           <PhotoSlot design={design} placeholderSize={18} />
         </div>
+        <div style={{ display: 'flex', position: 'absolute', inset: 0, backgroundImage: `linear-gradient(to right, ${colors.primary} 45%, rgba(0,0,0,0.15) 100%)` }} />
+        <div style={{ display: 'flex', position: 'relative', alignItems: 'center', paddingLeft: 28 }}>{numberBlock}</div>
+        <div style={{ display: 'flex', position: 'relative', alignItems: 'center', flexGrow: 1 }}>{nameBlock}</div>
         <Footer design={design} />
       </div>
     )
   }
 
-  // classico: foto de fundo com degradê à esquerda; número + nome por cima
+  // popular / sem foto: fundo sólido
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative' }}>
-      <div style={{ display: 'flex', position: 'absolute', inset: 0 }}>
-        <PhotoSlot design={design} placeholderSize={18} />
-      </div>
-      <div style={{ display: 'flex', position: 'absolute', inset: 0, backgroundImage: `linear-gradient(to right, ${colors.primary} 45%, rgba(0,0,0,0.15) 100%)` }} />
-      <div style={{ display: 'flex', position: 'relative', alignItems: 'center', paddingLeft: 28 }}>{numberBlock}</div>
-      <div style={{ display: 'flex', position: 'relative', alignItems: 'center', flexGrow: 1 }}>{nameBlock}</div>
+    <div style={{ display: 'flex', width: '100%', height: '100%', position: 'relative', background: colors.primary, alignItems: 'center', padding: '0 28px' }}>
+      {numberBlock}
+      {nameBlock}
       <Footer design={design} />
     </div>
   )

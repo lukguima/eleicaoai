@@ -10,11 +10,11 @@ import type { Candidate } from '@/types'
 interface Product { type: string; label: string; description: string; price: number }
 
 const PACKAGE_INCLUDES = [
-  { icon: '🗳️', label: 'Santinho' },
-  { icon: '📢', label: 'Banner' },
-  { icon: '🏷️', label: 'Faixa perfurada' },
-  { icon: '📱', label: 'Post para redes' },
+  { icon: '🗳️', label: 'Santinho + colinha' },
+  { icon: '📢', label: 'Banner + faixa + adesivo' },
+  { icon: '📱', label: 'Posts, stories e capas' },
   { icon: '🎵', label: 'Jingle' },
+  { icon: '🌐', label: 'Mini-site + textos da semana' },
 ]
 
 export default function PlanosPage() {
@@ -62,8 +62,10 @@ export default function PlanosPage() {
       })
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
-      if (json.data.skip_payment) router.push('/dashboard')
-      else window.location.href = json.data.payment_url
+      if (json.data.skip_payment) {
+        await fetch('/api/v1/kit/generate', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } }).catch(() => {})
+        router.push('/dashboard')
+      } else window.location.href = json.data.payment_url
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao processar o pedido.')
       setBuying(null)
@@ -89,7 +91,7 @@ export default function PlanosPage() {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-8">
         <div className="text-center">
           <h1 className="text-3xl font-extrabold text-gray-900">Escolha seu plano</h1>
-          <p className="text-gray-500 mt-2">Contrate o pacote completo ou peças avulsas. Você cria cada material no seu ritmo.</p>
+          <p className="text-gray-500 mt-2">Pague uma vez. A gente monta o kit. Você só revisa o que quiser.</p>
         </div>
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
@@ -144,7 +146,7 @@ export default function PlanosPage() {
         </div>
 
         <p className="text-center text-xs text-gray-400">
-          Todas as peças saem com o rótulo “Conteúdo fabricado com IA” exigido pela Res. TSE nº 23.732/2024.
+          Todas as peças saem com o rótulo de conteúdo fabricado com IA e a tecnologia usada, exigido pela Res. TSE nº 23.755/2026. Sem deepfake e sem clone de voz.
         </p>
       </main>
     </div>

@@ -8,7 +8,7 @@ values (
   'generated',
   true,
   10485760, -- 10 MB
-  array['image/png', 'image/jpeg', 'image/webp', 'audio/mpeg', 'audio/mp4']
+  array['image/png', 'image/jpeg', 'image/webp', 'audio/mpeg', 'audio/mp4', 'application/pdf']
 )
 on conflict (id) do nothing;
 

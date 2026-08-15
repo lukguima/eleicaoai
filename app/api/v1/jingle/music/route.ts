@@ -5,6 +5,7 @@ import { persistAudio } from '@/lib/storage'
 import { claimEntitlement, consumeEntitlement, releaseEntitlement, consumeMusicRegen, BYPASS_ENTITLEMENT } from '@/lib/entitlements'
 import { logComplianceEvent } from '@/lib/compliance'
 import { captureError, requestIdFrom } from '@/lib/log'
+import { quietPeriodResponse } from '@/lib/quiet-period'
 import type { ApiResponse, Candidate, JingleStyle } from '@/types'
 
 export const runtime = 'nodejs'
@@ -32,7 +33,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json<ApiResponse>({ success: false, error: 'Credenciais inválidas.' }, { status: 401 })
     }
 
-    const { candidate_id, style, lyrics, asset_id } = await req.json()
+    const blocked = quietPeriodResponse()
+    if (blocked) return blocked
+
+    const { candidate_id, style, lyrics, asset_id, include_ai_intro } = await req.json()
+    const includeAiIntro = include_ai_intro === true
     if (!STYLES.includes(style)) {
       return NextResponse.json<ApiResponse>({ success: false, error: 'Estilo musical inválido.' }, { status: 400 })
     }
@@ -76,7 +81,7 @@ export async function POST(req: NextRequest) {
       isRegen = true
       await supabase.from('assets').update({
         status: 'processing', lyrics: lyrics.trim(), output_url: null, error_message: null,
-        metadata: { ...meta, style, step: 'generating_music' },
+        metadata: { ...meta, style, step: 'generating_music', include_ai_intro: includeAiIntro },
       }).eq('id', assetId)
     } else {
       // ── Primeira geração ─────────────────────────────────────
@@ -92,7 +97,7 @@ export async function POST(req: NextRequest) {
         .from('assets')
         .insert({
           candidate_id, asset_type: 'jingle', status: 'processing', ai_model: 'Suno-V5.5',
-          lyrics: lyrics.trim(), metadata: { style, step: 'generating_music', entitlement_id: entitlementId },
+          lyrics: lyrics.trim(), metadata: { style, step: 'generating_music', entitlement_id: entitlementId, include_ai_intro: includeAiIntro },
         })
         .select('id').single()
       if (error || !asset) {
@@ -103,7 +108,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Dispara a música (callback do Suno finaliza; polling é fallback p/ dev)
-    const taskId = await generateJingle(candidate as Candidate, lyrics.trim(), style as JingleStyle, assetId)
+    const taskId = await generateJingle(candidate as Candidate, lyrics.trim(), style as JingleStyle, assetId, includeAiIntro)
     await supabase.from('assets').update({ external_task_id: taskId }).eq('id', assetId)
 
     pollMusicFallback(assetId, candidate_id, taskId, entitlementId, isRegen)

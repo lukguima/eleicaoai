@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { injectImageWatermark, fetchImageAsBuffer } from '@/lib/watermark'
 import { logComplianceEvent } from '@/lib/compliance'
-import type { ApiResponse, AssetType } from '@/types'
+import { isAiLabelOn, isCnpjOn } from '@/lib/compliance-text'
+import type { ApiResponse, AssetType, Design } from '@/types'
 
 // ── GET /api/v1/assets/export/[id] ───────────────────────────
 // Único ponto de download autorizado. Nunca expõe a URL bruta
@@ -41,7 +42,7 @@ export async function GET(
     // 2. Busca asset + verifica tenant (asset → candidate → user_id)
     const { data: asset, error: assetError } = await supabase
       .from('assets')
-      .select('id, asset_type, status, output_url, candidate_id, ai_model, candidates(user_id, campaign_cnpj, name)')
+      .select('id, asset_type, status, output_url, candidate_id, ai_model, design, candidates(user_id, campaign_cnpj, name)')
       .eq('id', assetId)
       .single()
 
@@ -79,7 +80,7 @@ export async function GET(
     }
 
     // 4. Jingle: redireciona diretamente (áudio não passa por Sharp)
-    //    A conformidade de áudio já foi injetada em lib/suno.ts (AUDIO_COMPLIANCE_INTRO)
+    //    Aviso falado de IA só entra se include_ai_intro estiver no metadata.
     if (asset.asset_type === 'jingle') {
       await logComplianceEvent({
         event_type: 'EXPORT',
@@ -108,6 +109,8 @@ export async function GET(
       rawBuffer,
       asset.asset_type as AssetType,
       candidate.campaign_cnpj,
+      isAiLabelOn(asset.design as Design | null),
+      isCnpjOn(asset.design as Design | null),
     )
 
     // 6. Registra export no log de compliance (LGPD / rastreabilidade)

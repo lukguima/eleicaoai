@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { candidateSchema } from '@/lib/validation'
 import { encryptCpf, validateCpf, logComplianceEvent } from '@/lib/compliance'
 import { captureError, requestIdFrom } from '@/lib/log'
+import { publicSlug } from '@/lib/slug'
 import type { ApiResponse } from '@/types'
 
 // ── POST /api/v1/candidates ───────────────────────────────────
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
     const { data: candidate, error: insertError } = await supabase
       .from('candidates')
       .insert({
-        user_id:           user.id,       // injetado pelo backend
+        user_id:           user.id,
         name:              input.name,
         election_number:   input.election_number,
         party:             input.party,
@@ -82,9 +83,45 @@ export async function POST(req: NextRequest) {
         cpf_encrypted,
         primary_color:     input.primary_color ?? '#1a56db',
         secondary_color:   input.secondary_color ?? '#ffffff',
+        office:            input.office ?? null,
+        uf:                input.uf ?? null,
+        visual_style:      input.visual_style ?? 'classico',
+        jingle_style:      input.jingle_style ?? null,
+        whatsapp:          input.whatsapp ?? null,
+        show_party_logo:   input.show_party_logo !== false,
+        public_slug:       publicSlug(input.name, input.election_number),
       })
       .select()
       .single()
+
+    if (insertError?.code === '23505') {
+      const retry = await supabase
+        .from('candidates')
+        .insert({
+          user_id:           user.id,
+          name:              input.name,
+          election_number:   input.election_number,
+          party:             input.party,
+          campaign_cnpj:     input.campaign_cnpj,
+          slogan:            input.slogan ?? null,
+          biography_summary: input.biography_summary,
+          cpf_encrypted,
+          primary_color:     input.primary_color ?? '#1a56db',
+          secondary_color:   input.secondary_color ?? '#ffffff',
+          office:            input.office ?? null,
+          uf:                input.uf ?? null,
+          visual_style:      input.visual_style ?? 'classico',
+          jingle_style:      input.jingle_style ?? null,
+          whatsapp:          input.whatsapp ?? null,
+          show_party_logo:   input.show_party_logo !== false,
+          public_slug:       `${publicSlug(input.name, input.election_number)}-${user.id.slice(0, 6)}`,
+        })
+        .select()
+        .single()
+      if (!retry.error && retry.data) {
+        return NextResponse.json<ApiResponse>({ success: true, data: { id: retry.data.id } }, { status: 201 })
+      }
+    }
 
     if (insertError || !candidate) {
       captureError(insertError, { request_id, user_id: user.id }, 'candidates: erro ao inserir candidatura')
@@ -134,7 +171,7 @@ export async function GET(req: NextRequest) {
     // Filtra SEMPRE por user_id — nunca retorna lista sem filtro de tenant
     const { data, error } = await supabase
       .from('candidates')
-      .select('id, name, election_number, party, campaign_cnpj, slogan, biography_summary, primary_color, secondary_color, base_photo_url, base_photo_cutout_url, created_at')
+      .select('id, name, election_number, party, campaign_cnpj, slogan, biography_summary, primary_color, secondary_color, base_photo_url, base_photo_cutout_url, office, uf, visual_style, jingle_style, public_slug, whatsapp, party_logo_url, show_party_logo, created_at')
       .eq('user_id', user.id)   // dupla proteção: app + RLS
       .order('created_at', { ascending: false })
 

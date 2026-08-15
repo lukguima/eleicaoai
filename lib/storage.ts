@@ -2,6 +2,25 @@ import { createServerClient } from '@/lib/supabase'
 import { log } from '@/lib/log'
 
 const BUCKET = 'generated'
+const ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp', 'audio/mpeg', 'audio/mp4', 'application/pdf']
+
+let bucketReady: Promise<void> | null = null
+
+/** Libera PDF e arquivos maiores no bucket (o limite original barrava gráfica). */
+function ensureBucket(): Promise<void> {
+  if (!bucketReady) {
+    bucketReady = (async () => {
+      const supabase = createServerClient()
+      const { error } = await supabase.storage.updateBucket(BUCKET, {
+        public: true,
+        fileSizeLimit: 52_428_800,
+        allowedMimeTypes: ALLOWED_MIMES,
+      })
+      if (error) log.warn({}, `storage: não deu para atualizar o bucket (${error.message})`)
+    })()
+  }
+  return bucketReady
+}
 
 /**
  * Extrai o caminho interno do bucket a partir de uma URL pública do Storage.
@@ -41,6 +60,7 @@ export async function uploadToBucket(
   buffer: Buffer,
   contentType: string,
 ): Promise<string> {
+  await ensureBucket()
   const supabase = createServerClient()
   const { error } = await supabase.storage
     .from(BUCKET)

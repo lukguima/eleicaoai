@@ -1,6 +1,9 @@
 import { createServerClient } from './supabase'
 import type { ComplianceLog } from '@/types'
 import { headers } from 'next/headers'
+import { AUDIO_COMPLIANCE_INTRO, IMAGE_WATERMARK_TEXT } from './compliance-text'
+
+export { AUDIO_COMPLIANCE_INTRO, IMAGE_WATERMARK_TEXT }
 
 type LogEventType = ComplianceLog['event_type']
 
@@ -85,13 +88,3 @@ export async function encryptCpf(cpf: string): Promise<string> {
   return `${ivHex}:${encHex}`
 }
 
-/**
- * Texto do aviso legal obrigatório para jingles.
- */
-export const AUDIO_COMPLIANCE_INTRO =
-  'Este conteúdo foi fabricado utilizando inteligência artificial.'
-
-/**
- * Texto da marca d'água obrigatória em imagens.
- */
-export const IMAGE_WATERMARK_TEXT = 'Conteúdo fabricado com IA'

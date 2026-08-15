@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS candidates (
   -- Preferências visuais
   primary_color   VARCHAR(7) DEFAULT '#1a56db',
   secondary_color VARCHAR(7) DEFAULT '#ffffff',
+  party_logo_url  TEXT,
+  show_party_logo BOOLEAN DEFAULT true,
 
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW()

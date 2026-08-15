@@ -4,6 +4,7 @@ import { sanitizeDesign } from '@/lib/design'
 import { generateBackground } from '@/lib/fal'
 import { signedUrlFromPublic } from '@/lib/storage'
 import { captureError, requestIdFrom } from '@/lib/log'
+import { quietPeriodResponse } from '@/lib/quiet-period'
 import type { ApiResponse, AssetType } from '@/types'
 
 export const runtime = 'nodejs'
@@ -20,6 +21,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const r = await loadOwnedAsset(req, id)
   if ('error' in r) return r.error
   const { supabase, asset, cnpj } = r
+
+  const blocked = quietPeriodResponse()
+  if (blocked) return blocked
 
   const assetType = asset.asset_type as AssetType
   if (assetType === 'jingle') {

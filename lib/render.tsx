@@ -9,6 +9,10 @@ import { SantinhoTemplate } from '@/components/templates/SantinhoTemplate'
 import { BannerTemplate } from '@/components/templates/BannerTemplate'
 import { PerfuradoTemplate } from '@/components/templates/PerfuradoTemplate'
 import { SocialTemplate } from '@/components/templates/SocialTemplate'
+import { StoriesTemplate } from '@/components/templates/StoriesTemplate'
+import { ColinhaTemplate } from '@/components/templates/ColinhaTemplate'
+import { AdesivoTemplate } from '@/components/templates/AdesivoTemplate'
+import { CapaTemplate } from '@/components/templates/CapaTemplate'
 
 // ============================================================
 // Motor de render: template React → satori (SVG) → resvg (PNG).
@@ -36,6 +40,11 @@ const TEMPLATES: Record<Exclude<AssetType, 'jingle'>, (props: { design: Design }
   banner: BannerTemplate,
   perfurado: PerfuradoTemplate,
   social: SocialTemplate,
+  stories: StoriesTemplate,
+  colinha: ColinhaTemplate,
+  adesivo: AdesivoTemplate,
+  capa: CapaTemplate,
+  status: StoriesTemplate,
 }
 
 /** Baixa uma imagem e devolve como data URI (satori não busca URLs remotas de forma confiável). */
@@ -51,21 +60,25 @@ async function toDataUri(url: string): Promise<string | null> {
   }
 }
 
-/** Prepara o design para render server-side: embute a foto como data URI. */
+/** Prepara o design para render server-side: embute foto e logo como data URI. */
 async function prepareDesign(design: Design): Promise<Design> {
-  if (!design.photo) return design
-  const src = design.photo.cutout_url || design.photo.url
-  if (!src || src.startsWith('data:')) return design
-  const dataUri = await toDataUri(src)
-  if (!dataUri) return design
-  return {
-    ...design,
-    photo: {
-      ...design.photo,
-      url: dataUri,
-      cutout_url: design.photo.cutout_url ? dataUri : undefined,
-    },
+  const photo = design.photo ? { ...design.photo } : undefined
+  if (photo) {
+    if (photo.url && !photo.url.startsWith('data:')) {
+      const dataUri = await toDataUri(photo.url)
+      if (dataUri) photo.url = dataUri
+    }
+    if (photo.cutout_url && !photo.cutout_url.startsWith('data:')) {
+      const dataUri = await toDataUri(photo.cutout_url)
+      if (dataUri) photo.cutout_url = dataUri
+    }
   }
+  let party_logo_url = design.party_logo_url
+  if (party_logo_url && !party_logo_url.startsWith('data:')) {
+    const dataUri = await toDataUri(party_logo_url)
+    if (dataUri) party_logo_url = dataUri
+  }
+  return { ...design, photo, party_logo_url }
 }
 
 export interface RenderResult {

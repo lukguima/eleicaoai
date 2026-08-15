@@ -62,13 +62,13 @@ const STEPS = [
   },
   {
     n: '02',
-    title: 'A IA gera o material',
-    desc: 'Santinho, banner, jingle ou post criado automaticamente com identidade visual profissional.',
+    title: 'A IA monta o kit',
+    desc: 'Santinho, stories, colinha, jingle e posts da semana — você só revisa o que quiser.',
   },
   {
     n: '03',
     title: 'Baixe e use',
-    desc: 'Arquivo pronto com rótulo TSE incluído. Conforme a Resolução nº 23.732/2024.',
+    desc: 'Arquivo pronto com rótulo TSE e a tecnologia usada. Conforme a Resolução nº 23.755/2026.',
   },
 ]
 
@@ -185,7 +185,7 @@ export default async function HomePage() {
               </div>
 
               <div className="absolute -bottom-3 -right-3 bg-tertiary-fixed text-on-tertiary-fixed text-xs font-bold px-4 py-2 rounded-full shadow-lg whitespace-nowrap">
-                ✓ Res. TSE 23.732/2024
+                ✓ Res. TSE 23.755/2026
               </div>
             </div>
           </div>
@@ -252,15 +252,15 @@ export default async function HomePage() {
             Dentro da lei, sempre
           </h2>
           <p className="text-on-surface-variant leading-relaxed text-lg max-w-2xl mx-auto">
-            A Resolução TSE nº 23.732/2024 exige que todo material gerado por inteligência artificial exiba o rótulo{' '}
-            <strong className="text-on-surface">&ldquo;Conteúdo fabricado com IA&rdquo;</strong>{' '}
-            e o CNPJ da campanha. O EleiçãoAI faz isso automaticamente em todos os materiais.
+            A Resolução TSE nº 23.755/2026 exige que todo material gerado por inteligência artificial informe, de modo explícito, que foi fabricado e{' '}
+            <strong className="text-on-surface">qual tecnologia foi usada</strong>
+            . O EleiçãoAI aplica o rótulo e o CNPJ automaticamente. Deepfake e clone de voz de terceiros não são oferecidos.
           </p>
           <div className="grid sm:grid-cols-3 gap-4 text-left mt-10">
             {[
-              { icon: '🏷️', title: 'Rótulo automático',  desc: '"Conteúdo fabricado com IA" aplicado em todos os materiais visuais gerados.' },
-              { icon: '🏢', title: 'CNPJ incorporado',   desc: 'O CNPJ da sua campanha é inserido conforme Art. 9º-B §2 da Resolução.' },
-              { icon: '📋', title: 'Atualizado em 2024', desc: 'Todas as exigências da Resolução TSE nº 23.732/2024 já estão implementadas.' },
+              { icon: '🏷️', title: 'Rótulo + tecnologia', desc: 'Aviso de conteúdo fabricado com IA (EleiçãoAI · template/Suno) em cada peça.' },
+              { icon: '🏢', title: 'CNPJ incorporado',   desc: 'O CNPJ da campanha entra no rodapé. Você não consegue remover.' },
+              { icon: '🚫', title: 'Sem deepfake',       desc: 'Não geramos clone de voz nem vídeo com rosto sintético de ninguém.' },
             ].map(c => (
               <div key={c.title} className="bg-white rounded-2xl border border-outline-variant p-6">
                 <span className="text-3xl">{c.icon}</span>
@@ -314,7 +314,7 @@ export default async function HomePage() {
                 Eleição<span className="text-secondary-container">AI</span>
               </p>
               <p className="text-white/40 text-sm mt-3 leading-relaxed max-w-[20rem]">
-                Materiais eleitorais gerados com inteligência artificial. Conformidade automática com o TSE desde 2024.
+                Materiais eleitorais gerados com inteligência artificial. Conformidade automática com o TSE (Res. 23.755/2026).
               </p>
             </div>
             <div>
@@ -332,14 +332,14 @@ export default async function HomePage() {
             <div>
               <p className="font-semibold text-sm mb-4 text-white/70 uppercase tracking-wider">Legal</p>
               <ul className="space-y-2.5 text-white/40 text-sm">
-                <li>Resolução TSE 23.732/2024</li>
+                <li>Resolução TSE 23.755/2026</li>
                 <li>Política de privacidade</li>
                 <li>Termos de uso</li>
               </ul>
             </div>
           </div>
           <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-white/25 text-xs">
-            <p>© 2024 EleiçãoAI. Todos os direitos reservados.</p>
+            <p>© 2026 EleiçãoAI. Todos os direitos reservados.</p>
             <p>Todos os materiais incluem rótulo TSE obrigatório de IA</p>
           </div>
         </div>

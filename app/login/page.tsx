@@ -29,7 +29,7 @@ export default function LoginPage() {
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${window.location.origin}/dashboard` },
+          options: { emailRedirectTo: `${window.location.origin}/onboarding` },
         })
         if (signUpError) throw signUpError
         setSuccess('Conta criada! Verifique seu e-mail para confirmar o cadastro.')
@@ -66,7 +66,7 @@ export default function LoginPage() {
             "Material eleitoral profissional gerado em minutos, não em dias."
           </blockquote>
           <div className="flex gap-4 text-sm opacity-75">
-            <span>✅ Conforme TSE Res. 23.732/2024</span>
+            <span>✅ Conforme TSE Res. 23.755/2026</span>
             <span>✅ Entrega em até 2 min</span>
           </div>
         </div>

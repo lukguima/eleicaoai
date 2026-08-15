@@ -1,11 +1,16 @@
 import type { Design } from '@/types'
-import { PhotoSlot, ComplianceFooter } from './parts'
+import { PhotoSlot, ComplianceFooter, PhotoRow, FrameWithPartyMark } from './parts'
 
 // Banner vertical (base 472×709). Tipografia grande p/ leitura à distância.
 
 export function BannerTemplate({ design }: { design: Design }) {
+  return <FrameWithPartyMark design={design} size={64}><BannerInner design={design} /></FrameWithPartyMark>
+}
+
+function BannerInner({ design }: { design: Design }) {
   const { fields, colors, template_id, label_position } = design
   const footerTop = label_position === 'top'
+  const place = design.photo_placement
 
   const numberBlock = (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -22,7 +27,22 @@ export function BannerTemplate({ design }: { design: Design }) {
     </div>
   )
 
-  if (template_id === 'popular') {
+  if (place === 'left' || place === 'right') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', background: colors.primary }}>
+        {footerTop && <ComplianceFooter design={design} fontSize={12} />}
+        <PhotoRow design={design} side={place} photoWidth="46%" placeholderSize={28}>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', padding: 20 }}>
+            {numberBlock}
+            <div style={{ display: 'flex', marginTop: 16 }}>{nameBlock}</div>
+          </div>
+        </PhotoRow>
+        {!footerTop && <ComplianceFooter design={design} fontSize={12} />}
+      </div>
+    )
+  }
+
+  if (place === 'background' || ((place === 'auto' || !place) && template_id === 'popular')) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', position: 'relative', background: colors.primary }}>
         {footerTop && <ComplianceFooter design={design} fontSize={12} />}
@@ -33,6 +53,24 @@ export function BannerTemplate({ design }: { design: Design }) {
             {numberBlock}
             {nameBlock}
           </div>
+        </div>
+        {!footerTop && <ComplianceFooter design={design} fontSize={12} />}
+      </div>
+    )
+  }
+
+  if (place === 'top') {
+    // classico
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', background: colors.primary }}>
+        {footerTop && <ComplianceFooter design={design} fontSize={12} />}
+        <div style={{ display: 'flex', position: 'relative', flexGrow: 1 }}>
+          <PhotoSlot design={design} placeholderSize={28} />
+          <div style={{ display: 'flex', position: 'absolute', bottom: 0, left: 0, right: 0, height: 160, backgroundImage: `linear-gradient(to top, ${colors.primary}, rgba(0,0,0,0))` }} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 0 30px', background: colors.primary }}>
+          {numberBlock}
+          <div style={{ display: 'flex', marginTop: 10 }}>{nameBlock}</div>
         </div>
         {!footerTop && <ComplianceFooter design={design} fontSize={12} />}
       </div>

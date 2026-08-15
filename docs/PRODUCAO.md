@@ -16,6 +16,8 @@ Rode os SQLs no **SQL Editor**, nesta ordem (só uma vez cada):
 5. **`supabase/migrations/20260708_orders_entitlements.sql`** — orders/order_items/entitlements,
    funções `claim_entitlement`/`consume_music_regen`, coluna `assets.design`,
    `candidates.base_photo_cutout_url`, seed do **Pacote Campanha Completa**.
+6. **`supabase/migrations/20260813_guided_studio.sql`** — cargo/UF/estilo, mini-site (`public_slug`),
+   calendário da semana, e novos tipos de peça (stories, colinha, adesivo, capa, status).
 
 Confira depois:
 - `select type, price, active from products;` → deve listar `pacote` + 5 avulsos.
@@ -39,7 +41,7 @@ Na Vercel (Project → Settings → Environment Variables) e no `.env.local` par
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → API (privada) | sim |
 | `NEXT_PUBLIC_APP_URL` | URL pública do site (callbacks Suno) | sim |
 | `CPF_ENCRYPTION_KEY` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` | sim |
-| `OPENAI_API_KEY` | platform.openai.com | sim (letra do jingle) |
+| `DEEPSEEK_API_KEY` | platform.deepseek.com | sim (letra do jingle, slogans) |
 | `SUNO_API_KEY` | sunoapi.org | sim (música) |
 | `SUNO_WEBHOOK_SECRET` | você define (string aleatória) | sim |
 | `FAL_KEY` | fal.ai | sim (remover fundo da foto / fundo IA) |
