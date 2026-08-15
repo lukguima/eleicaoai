@@ -21,13 +21,17 @@ Repositório: `github.com/lukguima/eleicaoai` · branch `master` · **Dockerfile
 
 Em **Environment Variables**. Atenção ao tipo:
 
-### Build-time (marque como "Build Variable" / disponível no build)
-As `NEXT_PUBLIC_*` são embutidas no bundle durante o `npm run build`, então precisam
-existir **no build**:
-- `NEXT_PUBLIC_SUPABASE_URL`
+### Build-time (obrigatório marcar "Build Variable" / Available at Buildtime)
+As `NEXT_PUBLIC_*` entram no JavaScript do browser no `npm run build`. Se ficarem
+só como variável de runtime, o site sobe mas **cadastro e login falham** (o bundle
+fica sem o Supabase real). Marque as quatro e faça **Rebuild** (não só Restart):
+- `NEXT_PUBLIC_SUPABASE_URL` (URL do projeto, `https://xxxx.supabase.co`)
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `NEXT_PUBLIC_APP_URL` (ex.: `https://seudominio.com`)
-- `NEXT_PUBLIC_SITE_URL` (mesmo domínio)
+- `NEXT_PUBLIC_APP_URL` (o domínio público deste deploy, com `https://`)
+- `NEXT_PUBLIC_SITE_URL` (o mesmo domínio)
+
+No Supabase → Authentication → URL Configuration, acrescente o mesmo domínio em
+**Redirect URLs** (`https://seudominio.com/**`) e em **Site URL**.
 
 ### Runtime (secretas — só no servidor)
 - `SUPABASE_SERVICE_ROLE_KEY`

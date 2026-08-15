@@ -13,17 +13,27 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Variáveis NEXT_PUBLIC_ precisam estar disponíveis em build time
-ARG NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder
-ARG NEXT_PUBLIC_APP_URL=https://eleicaoai.com.br
-ARG NEXT_PUBLIC_SITE_URL=https://eleicaoai.com.br
+# NEXT_PUBLIC_* entram no JS do browser no `next build`.
+# Sem build-arg real o cadastro/login aponta para um Supabase falso.
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_SITE_URL
 
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || echo "$NEXT_PUBLIC_SUPABASE_URL" | grep -q placeholder; then \
+      echo "ERRO: passe NEXT_PUBLIC_SUPABASE_URL real como Build Variable no Coolify e faça rebuild." >&2; \
+      exit 1; \
+    fi \
+ && if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] || [ "$NEXT_PUBLIC_SUPABASE_ANON_KEY" = "placeholder" ]; then \
+      echo "ERRO: passe NEXT_PUBLIC_SUPABASE_ANON_KEY real como Build Variable no Coolify e faça rebuild." >&2; \
+      exit 1; \
+    fi
 
 RUN npm run build
 

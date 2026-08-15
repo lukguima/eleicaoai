@@ -39,10 +39,36 @@ export default function DesignEditor({ assetId, candidateId, assetType, initialD
   const [cadastroBusy, setCadastroBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const photoRef = useRef<HTMLInputElement>(null)
+  const previewBoxRef = useRef<HTMLDivElement>(null)
 
-  // Escala do preview para caber na coluna central
+  // Escala do preview: no celular cabe na largura/altura disponível; no desktop o zoom é manual.
   const [previewW, setPreviewW] = useState(360)
+  const [fitW, setFitW] = useState(360)
   const scale = previewW / spec.baseW
+
+  useEffect(() => {
+    const el = previewBoxRef.current
+    if (!el) return
+    const measure = () => {
+      const pad = 32
+      const availW = Math.max(140, el.clientWidth - pad)
+      const narrow = window.innerWidth < 1024
+      const availH = narrow
+        ? Math.max(160, window.innerHeight * 0.42)
+        : Math.max(200, el.clientHeight - 88)
+      const next = Math.min(availW, (availH / spec.baseH) * spec.baseW, 520)
+      setFitW(next)
+      setPreviewW(w => (narrow ? next : Math.min(w, next) || Math.min(360, next)))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [spec.baseW, spec.baseH])
 
   async function token(): Promise<string> {
     const { data: { session } } = await createBrowserClient().auth.getSession()
@@ -194,29 +220,34 @@ export default function DesignEditor({ assetId, candidateId, assetType, initialD
   const labelCls = 'block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1'
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100">
-      {/* Preview central */}
-      <section className="flex-1 flex flex-col items-center justify-center p-6 overflow-auto">
+    <div className="flex flex-col lg:flex-row h-dvh overflow-hidden bg-gray-100">
+      {/* Preview: em cima no celular, à esquerda no desktop */}
+      <section
+        ref={previewBoxRef}
+        className="flex flex-col items-center justify-center px-4 py-3 lg:p-6 overflow-auto shrink-0 lg:flex-1 lg:min-h-0 max-h-[48vh] lg:max-h-none"
+      >
         <div
           style={{ width: previewW, height: spec.baseH * scale }}
-          className="shadow-2xl overflow-hidden bg-white shrink-0"
+          className="shadow-2xl overflow-hidden bg-white shrink-0 max-w-full"
         >
           <div style={{ width: spec.baseW, height: spec.baseH, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
             <Template design={design} />
           </div>
         </div>
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-3 hidden lg:flex items-center gap-2">
           <span className="text-xs text-gray-500">Zoom</span>
-          <input type="range" min={240} max={520} value={previewW} onChange={e => setPreviewW(Number(e.target.value))} />
+          <input type="range" min={240} max={Math.max(240, Math.round(fitW))} value={Math.min(previewW, fitW)} onChange={e => setPreviewW(Number(e.target.value))} />
           <span className="text-xs text-gray-400">{spec.label} · {spec.printW}×{spec.printH}px</span>
         </div>
-        <p className="mt-1 text-xs text-gray-400">Este preview é idêntico ao arquivo que você vai baixar.</p>
+        <p className="mt-1 text-[11px] lg:text-xs text-gray-400 text-center">
+          {spec.label} · preview idêntico ao arquivo final
+        </p>
       </section>
 
       {/* Painel de edição */}
-      <aside className="w-80 bg-white border-l border-gray-200 flex flex-col overflow-y-auto shrink-0">
-        <header className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-800">← Painel</Link>
+      <aside className="flex-1 min-h-0 lg:flex-none lg:w-80 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col overflow-y-auto">
+        <header className="p-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+          <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-800 py-1">← Painel</Link>
           <span className="text-xs text-gray-400">{saving ? 'Salvando…' : 'Salvo'}</span>
         </header>
 
@@ -425,9 +456,9 @@ export default function DesignEditor({ assetId, candidateId, assetType, initialD
           </div>
         </div>
 
-        <div className="p-4 border-t border-gray-200 mt-auto">
+        <div className="p-4 border-t border-gray-200 sticky bottom-0 bg-white shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <button onClick={handleGenerateFinal} disabled={rendering}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 rounded-xl text-sm transition-colors">
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 rounded-xl text-sm transition-colors min-h-11">
             {rendering ? 'Gerando arquivo…' : 'Gerar arquivo final'}
           </button>
           <p className="text-[11px] text-gray-400 text-center mt-2">PNG em alta resolução + PDF para gráfica</p>
