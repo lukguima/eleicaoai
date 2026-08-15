@@ -21,10 +21,9 @@ Repositório: `github.com/lukguima/eleicaoai` · branch `master` · **Dockerfile
 
 Em **Environment Variables**. Atenção ao tipo:
 
-### Build-time (obrigatório marcar "Build Variable" / Available at Buildtime)
-As `NEXT_PUBLIC_*` entram no JavaScript do browser no `npm run build`. Se ficarem
-só como variável de runtime, o site sobe mas **cadastro e login falham** (o bundle
-fica sem o Supabase real). Marque as quatro e faça **Rebuild** (não só Restart):
+### Runtime (este Coolify não injeta `NEXT_PUBLIC_*` no `docker build`)
+O app lê as públicas **em runtime** (o layout injeta no browser). Basta existirem
+nas Environment Variables — **não** precisa marcar Build Variable:
 - `NEXT_PUBLIC_SUPABASE_URL` (URL do projeto, `https://xxxx.supabase.co`)
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_APP_URL` (o domínio público deste deploy, com `https://`)

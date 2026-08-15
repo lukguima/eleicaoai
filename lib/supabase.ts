@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { createBrowserClient as ssrBrowserClient } from '@supabase/ssr'
+import { publicSupabase } from '@/lib/public-env'
 
 // ── Cliente server-side (service_role — NUNCA expor no frontend) ──
 export function createServerClient() {
@@ -17,10 +18,6 @@ export function createServerClient() {
 
 // ── Cliente browser — usa @supabase/ssr para gestão correta de cookies/sessão ──
 export function createBrowserClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key || url.includes('placeholder.supabase')) {
-    throw new Error('Configuração incompleta: marque NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY como Build Variable no Coolify e faça rebuild.')
-  }
-  return ssrBrowserClient(url, key)
+  const { supabaseUrl, supabaseAnon } = publicSupabase()
+  return ssrBrowserClient(supabaseUrl, supabaseAnon)
 }

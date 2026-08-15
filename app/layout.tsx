@@ -47,11 +47,17 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export const dynamic = 'force-dynamic'
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const publicEnv = {
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+    supabaseAnon: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
+  }
   return (
     <html
       lang="pt-BR"
@@ -59,6 +65,11 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.__ELEICAO_PUBLIC__=${JSON.stringify(publicEnv)}`,
+          }}
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
           rel="stylesheet"
