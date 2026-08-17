@@ -260,7 +260,7 @@ export default function DesignEditor({ assetId, candidateId, assetType, initialD
             <div className="grid grid-cols-3 gap-2">
               {variations.map(v => (
                 <button key={v.id} type="button" title={v.description}
-                  onClick={() => setDesign(d => ({ ...d, template_id: v.id }))}
+                  onClick={() => setDesign(d => ({ ...d, template_id: v.id, photo_placement: 'auto' }))}
                   className={`px-2 py-2 rounded-lg text-xs font-semibold border-2 transition-colors ${design.template_id === v.id ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-blue-300'}`}>
                   {v.label}
                 </button>
